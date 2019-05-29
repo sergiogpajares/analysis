@@ -13,7 +13,6 @@ This is an analysis module developed for TEI.
     Contains:
      - Regresion tools that gets the regresion coeficients
      - Plot special funtion that manage errorbars and regresion
-     - Some physical constants
      
     
     Dependencies:
@@ -27,14 +26,19 @@ Last update: 16-03-2019
 '''
 __all__ = [
 'ponderated_mean','data_plot','linear_regresion','linear_ponderated_regresion',
-'linear_origin_regresion','skip_value','funplot','c','e','e0','u0'
+'linear_origin_regresion','skip_value','funplot'
 ]
 
-__version__ = '2.1.0'
+__version__ = '2.1.1'
 
 
 '''
 Versions history 
+   2.1.1 
+ ---------------------------
+   - physical constants erased. A submodule with a structure for constants
+     will be provided soon.
+
    2.1.0 
  ---------------------------
    - ponderated_mean: added
@@ -71,7 +75,6 @@ Versions history
 #=======================================================================
 from numpy import *
 import matplotlib.pyplot as plt
-#from ifc import skip_value
 
 #=======================================================================
 #==== DATA =============================================================
@@ -80,27 +83,27 @@ import matplotlib.pyplot as plt
 #####################
 # --- PHYSICAL CONSTANTS ---
 #
-
-c=299792458
-'''
-speed of light in vacuum (m/s)
-'''
-
-e=1.6021766208E-19
-'''
-electron charge magnitude (C)
-'''
-
-e0=8.854187817E-12
-'''
-permittivity of free space (N/m)
-'''
-
-u0=12.566370614E-7
-'''
-permeability of free space (N/A²)
-'''
-
+#
+#c=299792458
+#'''
+#speed of light in vacuum (m/s)
+#'''
+#
+#e=1.6021766208E-19
+#'''
+#electron charge magnitude (C)
+#'''
+#
+#e0=8.854187817E-12
+#'''
+#permittivity of free space (N/m)
+#'''
+#
+#u0=12.566370614E-7
+#'''
+#permeability of free space (N/A²)
+#'''
+#
 #####################
 # --- UNITS MANAGEMENT ---
 #
