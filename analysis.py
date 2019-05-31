@@ -50,42 +50,11 @@ Versions history
    
    2.0.0 
  ---------------------------
-   - general: inclusion of dynamic lambda use in regresion funtions and
-              data_plot
-   
-   - data_plot: linear coeficientes has been substituided by a regresion
-                funtion so, now plot can be used with any function. New
-                np parameter added.
-   - data_plot: no longer plots grid
-   - data_plot: ecolor parameter is now set 'k' by default
-   
-   - linear_ponderated: debuged 
-   
-   - data_multi_plots: disapears
+   - general: inclusion of dynamic lambda use in regresion funtions
    - data_sin_plot: disapears
     
    Previous 
- ---------------------------
-    Not recorded
-
-'''
-
-#=======================================================================
-#==== IMPORTS ==========================================================
-#=======================================================================
-from numpy import *
-import matplotlib.pyplot as plt
-
-#=======================================================================
-#==== DATA =============================================================
-#=======================================================================
-
-#####################
-# --- PHYSICAL CONSTANTS ---
-#
-#
-#c=299792458
-#'''
+ ------------
 #speed of light in vacuum (m/s)
 #'''
 #
