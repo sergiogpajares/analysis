@@ -19,6 +19,7 @@ This is an analysis module developed for TEI.
     Dependencies:
      - Numpy
      - Matplotlib
+     - Scipy
 
 
 Author: Sergio García Pajares
@@ -29,7 +30,7 @@ __all__ = [
 'ponderated_mean','data_plot','linear_regresion','linear_ponderated_regresion',
 'linear_origin_regresion','series_ponderated_mean','skip_value','funplot',
 'fun3plot',
-'c','e','e0','u0'
+#'c','e','e0','u0'
 ]
 
 __version__ = '2.1.0'
@@ -74,7 +75,7 @@ Versions history
 #=======================================================================
 from numpy import *
 import matplotlib.pyplot as plt
-#from ifc import skip_value
+
 from scipy.stats import itemfreq
 
 #=======================================================================
@@ -84,40 +85,40 @@ from scipy.stats import itemfreq
 #####################
 # --- PHYSICAL CONSTANTS ---
 #
-
-c=299792458
-'''
-speed of light in vacuum (m/s)
-'''
-
-e=1.6021766208E-19
-'''
-electron charge magnitude (C)
-'''
-
-e0=8.854187817E-12
-'''
-permittivity of free space (N/m)
-'''
-
-u0=12.566370614E-7
-'''
-permeability of free space (N/A²)
-'''
-
+#
+#c=299792458
+#'''
+#speed of light in vacuum (m/s)
+#'''
+#
+#e=1.6021766208E-19
+#'''
+#electron charge magnitude (C)
+#'''
+#
+#e0=8.854187817E-12
+#'''
+#permittivity of free space (N/m)
+#'''
+#
+#u0=12.566370614E-7
+#'''
+#permeability of free space (N/A²)
+#'''
+#
 #####################
 # --- UNITS MANAGEMENT ---
 #
-
+#
 #The tranform everything to SI unitis
-'''
-m=1
-
-c = m/1E2
-m = m/1E3
-u = m/1E6
-n = m/1E9  
-'''
+#'''
+#m=1
+#
+#c = m/1E2
+#m = m/1E3
+#u = m/1E6
+#n = m/1E9  
+#'''
 #=======================================================================
 #==== FUNCTIONS ========================================================
 #=======================================================================
