@@ -6,7 +6,7 @@ New versions will only support Python 3·
 
 
 # Dependencies
-Actually, Matplotlib and NumPy are required. Soon, SciPy will also be required. 
+Actually, Matplotlib, NumPy and SciPy are required.
 
 
 
