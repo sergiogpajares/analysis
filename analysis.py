@@ -2,7 +2,7 @@
 #
 #analysis module
 #Author: Sergio García Pajares
-#last update: 22-03-2019
+#last update: 04-09-2019
 
 #=======================================================================
 #==== INFO =============================================================
@@ -13,6 +13,7 @@ This is an analysis module developed for TEI.
     Contains:
      - Regresion tools that gets the regresion coeficients
      - Plot special funtion that manage errorbars and regresion
+     - Some physical constants
      
     
     Dependencies:
@@ -26,22 +27,20 @@ Last update: 16-03-2019
 '''
 __all__ = [
 'ponderated_mean','data_plot','linear_regresion','linear_ponderated_regresion',
-'linear_origin_regresion','skip_value','funplot'
+'linear_origin_regresion','series_ponderated_mean','skip_value','funplot',
+'fun3plot',
+'c','e','e0','u0'
 ]
 
-__version__ = '2.1.1'
+__version__ = '2.1.0'
 
 
 '''
-Versions history 
-   2.1.1 
- ---------------------------
-   - physical constants erased. A submodule with a structure for constants
-     will be provided soon.
-
+Versions history
    2.1.0 
  ---------------------------
    - ponderated_mean: added
+   - series_ponderated_mean: added
 
    2.0.1 
  ---------------------------
@@ -75,6 +74,8 @@ Versions history
 #=======================================================================
 from numpy import *
 import matplotlib.pyplot as plt
+#from ifc import skip_value
+from scipy.stats import itemfreq
 
 #=======================================================================
 #==== DATA =============================================================
@@ -83,37 +84,46 @@ import matplotlib.pyplot as plt
 #####################
 # --- PHYSICAL CONSTANTS ---
 #
-#
-#c=299792458
-#'''
-#speed of light in vacuum (m/s)
-#'''
-#
-#e=1.6021766208E-19
-#'''
-#electron charge magnitude (C)
-#'''
-#
-#e0=8.854187817E-12
-#'''
-#permittivity of free space (N/m)
-#'''
-#
-#u0=12.566370614E-7
-#'''
-#permeability of free space (N/A²)
-#'''
-#
+
+c=299792458
+'''
+speed of light in vacuum (m/s)
+'''
+
+e=1.6021766208E-19
+'''
+electron charge magnitude (C)
+'''
+
+e0=8.854187817E-12
+'''
+permittivity of free space (N/m)
+'''
+
+u0=12.566370614E-7
+'''
+permeability of free space (N/A²)
+'''
+
 #####################
 # --- UNITS MANAGEMENT ---
 #
 
+#The tranform everything to SI unitis
+'''
+m=1
 
+c = m/1E2
+m = m/1E3
+u = m/1E6
+n = m/1E9  
+'''
 #=======================================================================
 #==== FUNCTIONS ========================================================
 #=======================================================================
 #####################
-
+# --- STATISTICS ---
+#
 def ponderated_mean (x,dx):
     '''
     Calculates ponderated mean
@@ -131,8 +141,8 @@ def ponderated_mean (x,dx):
             dx, number: error of the mean
                
     '''
-    x=asarray(x)
-    dx=asarray(dx)
+    x=asarray(x,dtype=float)
+    dx=asarray(dx,dtype=float)
     
     w=1/(dx**2)
     sw=sum(w)
@@ -140,6 +150,76 @@ def ponderated_mean (x,dx):
     
     return((swx/sw),(1/sqrt(sw)))
     
+def series_ponderated_mean(x,y,dy):
+    '''
+    Calculates the ponderated mean of a secuence
+    
+        PARAMETERS:
+            x,  1d-array like: x values
+            y,  1d-array like: y values in which ponderated mean is 
+                               going to be calculated
+            dy, 1d-array like: precision of the y values
+        
+        RETURNS:
+                      _    _
+          (x-unique , y , dy )
+            
+             x-unique, 1d-array: unique values in the original data sheet
+             _
+             y, 1d-array: mean of the elements with same x value
+              _
+             dy, 1d-array: error of the mean of the same x elements
+        
+        
+        EXAMPLE 
+        
+         GIVEN:              RETURNED:
+         --------------                  _        _
+         | x   y   dy |      X-unique    y       dy
+         |------------|  
+         | 1  5.1  .2 |         1       5.02    11.01   
+         | 1  4.9  .1 |
+         |------------|         2       0.04     0.08
+         | 2  10   .3 |
+         |------------|
+         | 1  5.2  .1 |
+         |------------|
+         | 2  11   .1 |
+         | 2  12   .2 |
+         | 2   8   .5 |
+         |------------|
+         | 1  5.0 .05 |
+         --------------
+
+    '''
+    
+    x=asarray(x)
+    y=asarray(y)
+    dy=asarray(dy)
+    
+    assert len(x.shape) == 1, "x must be a 1d array like object" 
+        #unique flatten arrays if axis is not specified
+    assert len(y.shape)  == 1, "y must be a 1d array like object"
+    assert len(dy.shape) == 1, "dy must be a 1d array like object"
+    assert size(x) == size (y), "x and y mus have the same number of elemnts"
+    assert size(y) == size(y), "y and dy must have the same number of elements"
+    
+    
+    x_values  = unique(x) #get unique values of x
+    
+    y_values  = ones_like(x_values,dtype=float) # create an array in which store y means
+    dy_values = ones_like(x_values,dtype=float) # create an array in which store dy of means
+    
+    i = 0 #initialice #it's the counter of x-values elements
+    
+    for value in x_values:
+        indices = where (x == value) #get indices of x original array
+        y_values[i] , dy_values[i] = ponderated_mean(y[indices],dy[indices]) 
+            #calculate for chosen values
+        i += 1 #next x_value
+    
+    
+    return x_values , y_values , dy_values
 
 #####################
 # --- REGRESION ---
@@ -166,13 +246,13 @@ def linear_regresion(x,y,f=False):
         
         Depends on f optional parameter
             
-            if f== False
+            if f == False
                 (a,b,da,db) tuple
             
-            if f== True
+            if f == True
                 (a,b,da,db,f) tuple
                 
-            if f== None
+            if f == None
                 (f)
                     
          For  y = a x + b 
@@ -425,11 +505,10 @@ the different regresion functions. It's a private var
 #####################
 # --- PLOTTING ---
 #
-def funplot (f,xmin,xmax,n=100,fmt='b-',legend='',title='',xlabel='',
-ylabel='',adjust=False):
-    #SIN ACABAR 
+def funplot (f,xmin,xmax,n=100,fmt='',legend='',title='',xlabel='',
+ylabel='',label='',adjust=False):
     '''
-    Plots an R-->R fuction 
+    Plots an |R --> |R fuction 
     
         PARAMETERS:
             f, function: |R-->|R function
@@ -443,20 +522,85 @@ ylabel='',adjust=False):
             xlabel, str: xlabel
             ylabel, str: tlabel
             adjust, bool: for adjusting axis to xmin and xmax limits.
+        
+        RETURNS
+            A list of Line2D objects representing the plotted data.
+            It's generated by matplotlib.pyplot.plot() func.
+            
     '''
     #plotting
-    x=np.linspace(xmin,xmax,n) #create x
-    gr=plt.plot(x,f(x),fmt,label=leyenda) #plot and evaluate
+    x  = np.linspace(xmin,xmax,n) #create x
+    y  = f(x) #eval func. Values will be used later.
+    
+    if fmt != '': #manage fmt provided or not by user
+        gr = plt.plot(x,y,fmt,label=label) #plot
+    else:
+        gr = plt.plot(x,y,    label=label) #plot
     
     #personalization
     if legend != '' : plt.legend() #create legend
     if title != '' : plt.title('u'+title)
     if xlabel != '' : plt.xlabel('u'+xlabel)
     if ylabel != '' : plt.ylabel(ylabel)
-    #if adjust==True : ptl.axis
+    if adjust == True : ptl.axis([xmin,xmax,np.min(y),np.max(y)])
     
     return gr 
 
+def fun3plot (F,x0,x1,y0,y1,z0,z1,n=10, ax=None, normalize=True):
+    '''
+    Plot a 3D quiver of an F: |R³ ------> |R³ function.
+    
+        PARAMETERs:
+            F, callable: funtion for plot. Must be F(x,y,z) = (v1,v2,v3)
+            
+            x0, number: x min bound
+            x1, number: x min bound
+            
+            y0, number: x min bound
+            y1, number: x max bound
+            
+            z0, number: x min bound
+            z1, number: x max bound
+            
+            n=10, integer: number of arrows per axis
+            
+            ax = None: axis in which you want to make the plot.
+                       by default it takes current axis
+            normalize=True, bool: True normalize arrows and gives it's 
+                                  module using color.
+        
+        RETURNS
+            <mpl_toolkits.mplot3d.art3d.Line3DCollection object>
+            
+    '''
+    # get limits
+    assert isinstance(n,int) , "n is the number of arrows per axis. It must be an integer." 
+    x = np.linspace(x0,x1,n,dtype=float)
+    y = np.linspace(y0,y1,n,dtype=float)
+    z = np.linspace(z0,z1,n,dtype=float)
+    
+    # prepare broadcast
+    x.shape = ( n, 1, 1)
+    y.shape = ( 1, n, 1)
+    z.shape = ( 1, 1, n)
+    
+    # create grid
+    x,y,z = np.meshgrid(x,y,z)
+    
+    # eval funtion
+    F_x , F_y , F_z = F(x,y,z)
+    
+    #in case axis not provided
+    if ax == None: ax = plt.gca() 
+    
+    # plot
+    if normalize:
+        plot = ax.quiver(x, y, z, F_x*.1, F_y*.1, F_z*.1, length=0.5, normalize = True)#, colors=mpl.cm.jet)
+        #add cm here
+        #plt.gcf().colorbar(plot, shrink=0.85)
+        return plot
+    else:
+        return ax.quiver(x, y, z, F_x*.1, F_y*.1, F_z*.1)
 
 
 def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',ylabel='',ms=3,regresion=None,np=300,extrapole=False,adjust=False):
@@ -485,8 +629,6 @@ def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',y
               |               REGRESION POSIBILITIES              |
               |===================================================|
               |             KEY          |          TYPE          |
-              |---+----------------------+------------------------|
-              | 0 |                         No regresion drawn    |
               |---+-----------------------------------------------|
               | 0 | linear               | linear                 |
               | 1 | linear_ponderated    | linear ponderated      |
@@ -521,13 +663,13 @@ def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',y
             
             
     '''
-    x=asarray(x,dtype=float) #work with arrays
-    y=asarray(y,dtype=float)
+    x = asarray(x,dtype=float) #work with arrays
+    y = asarray(y,dtype=float)
     
-    x=skip_value(x) #skip none values
-    y=skip_value(y)
+    x = skip_value(x) #skip none values
+    y = skip_value(y)
     
-    assert size(x)==size(y), "x and y must have the same number of elements"
+    assert size(x) == size(y), "x and y must have the same number of elements"
     
     
     #---ERROR BARS---
@@ -640,6 +782,9 @@ def skip_value (x,value=None):
     
     It's a copy of the ifc function skip_value
     
+    This func will be updated soon as it is non vectorize and it's use
+    may ralentize the exec of your program.
+    
         PARAMENTERS:
             x, narray-like: array in which we want to skip some key
                             values
@@ -647,13 +792,14 @@ def skip_value (x,value=None):
             value, str: value we want to skip. (None by default)
         
         RETURNS:
-            narray: copy of elements without the choosen values
+            narray: copy (not slice) of elements without the choosen 
+                    values
     '''
-    x=asarray(x)
-    shape=x.shape #storing original shape
-    x.shape=(x.size) #reshaping
-    l=[] #empty list
+    x = asarray(x)
+    shape = x.shape #storing original shape
+    x.shape = (x.size) #reshaping
+    l=[] #empty list, declare
     for i in range(x.size):
-        if x[i]!= value : l.append(i)
+        if x[i] != value : l.append(i)
+    
     return x[l]
-
