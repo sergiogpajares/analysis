@@ -74,6 +74,8 @@ Versions history
 #==== IMPORTS ==========================================================
 #=======================================================================
 from numpy import *
+import numpy as np #this dual import is a temporal bug fix before main implementation. It's necesary due to mix of funcs
+                   #from main update and before it.
 import matplotlib.pyplot as plt
 
 from scipy.stats import itemfreq
