@@ -2,7 +2,7 @@
 #
 #analysis module
 #Author: Sergio García Pajares
-#last update: 04-09-2019
+#last update: 21-09-2019
 
 #=======================================================================
 #==== INFO =============================================================
@@ -502,13 +502,18 @@ This dict is used by data_plot function to get regresion from
 the different regresion functions. It's a private var
 '''
 
-
+def heaviside(x,diff=2):
+    '''
+    
+    '''
+    x[:-1] = np.where(np.diff(x) <= diff,x[:-1],np.nan)
+    return x
 
 
 #####################
 # --- PLOTTING ---
 #
-def funplot (f,xmin,xmax,n=100,fmt='',legend='',title='',xlabel='',
+def funplot (f,xmin,xmax,n=100,fmt='',discon=False,diff=20 ,legend='',title='',xlabel='',
 ylabel='',label='',adjust=False):
     '''
     Plots an |R --> |R fuction 
@@ -521,6 +526,8 @@ ylabel='',label='',adjust=False):
             OPTIONAL
             n, int: number of x divisions for x. 
             fmt, str: line format
+            discon, bool: avoid plotting vertical line on disco funcs
+            diff, number: max diference between two discontinus points to break vertical line
             legend, str: name of function for legend
             xlabel, str: xlabel
             ylabel, str: tlabel
@@ -533,7 +540,8 @@ ylabel='',label='',adjust=False):
     '''
     #plotting
     x  = np.linspace(xmin,xmax,n) #create x
-    y  = f(x) #eval func. Values will be used later.
+    if discon: heaviside(f(x))
+    else: y  = f(x) #eval func. Values will be used later.
     
     if fmt != '': #manage fmt provided or not by user
         gr = plt.plot(x,y,fmt,label=label) #plot
