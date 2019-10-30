@@ -1,83 +1,73 @@
 # -*- coding:utf8 -*-
 #
-#analysis module
-#Author: Sergio García Pajares
-#last update: 21-09-2019
+#  ------> AUTHOR INFO <------------------------------------------------
+#
+#  analysis module
+#  Author: Sergio García Pajares
+#  Mail me  'uo272591@uniovi.es' or 'sergiogarciapajares@gmail.com'
+#  last update: 30-10-2019
+#
+#  ------> LICENSE <----------------------------------------------------
+#  
+#  Copyright 2019 Sergio G. Pajares <sergio@sergio-linux>
+#  
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
 
 #=======================================================================
 #==== INFO =============================================================
 #=======================================================================
 '''
-This is an analysis module developed for TEI.
+This is an analysis module developed for TEI (Experimetal Techniques I)
+an mandatory course of Physics Degree at University of Oviedo.
 
     Contains:
      - Regresion tools that gets the regresion coeficients
+     - Some analytic basic function to work with raw labdata
      - Plot special funtion that manage errorbars and regresion
+     - Some OS manage functions to automatize some common processes
      - Some physical constants
      
     
     Dependencies:
-     - Numpy
+     - NumPy
+     - SciPy
      - Matplotlib
-     - Scipy
+     - OS
 
 
 Author: Sergio García Pajares
-Last update: 16-03-2019
+Last update: 30-10-2019
 
 '''
 __all__ = [
 'ponderated_mean','data_plot','linear_regresion','linear_ponderated_regresion',
 'linear_origin_regresion','series_ponderated_mean','skip_value','funplot',
-'fun3plot',
-#'c','e','e0','u0'
+'newdirectory','fun3plot',
+'c','e','e0','u0'
 ]
 
 __version__ = '2.1.0'
 
 
-'''
-Versions history
-   2.1.0 
- ---------------------------
-   - ponderated_mean: added
-   - series_ponderated_mean: added
-
-   2.0.1 
- ---------------------------
-   - linear_origin_regresion: added
-
-   
-   2.0.0 
- ---------------------------
-   - general: inclusion of dynamic lambda use in regresion funtions and
-              data_plot
-   
-   - data_plot: linear coeficientes has been substituided by a regresion
-                funtion so, now plot can be used with any function. New
-                np parameter added.
-   - data_plot: no longer plots grid
-   - data_plot: ecolor parameter is now set 'k' by default
-   
-   - linear_ponderated: debuged 
-   
-   - data_multi_plots: disapears
-   - data_sin_plot: disapears
-    
-   Previous 
- ---------------------------
-    Not recorded
-
-'''
 
 #=======================================================================
 #==== IMPORTS ==========================================================
 #=======================================================================
 from numpy import *
-import numpy as np #this dual import is a temporal bug fix before main implementation. It's necesary due to mix of funcs
-                   #from main update and before it.
 import matplotlib.pyplot as plt
-
 from scipy.stats import itemfreq
 
 #=======================================================================
@@ -87,43 +77,92 @@ from scipy.stats import itemfreq
 #####################
 # --- PHYSICAL CONSTANTS ---
 #
-#
-#c=299792458
-#'''
-#speed of light in vacuum (m/s)
-#'''
-#
-#e=1.6021766208E-19
-#'''
-#electron charge magnitude (C)
-#'''
-#
-#e0=8.854187817E-12
-#'''
-#permittivity of free space (N/m)
-#'''
-#
-#u0=12.566370614E-7
-#'''
-#permeability of free space (N/A²)
-#'''
-#
+
+c=299792458
+'''
+speed of light in vacuum (m/s)
+'''
+
+e=1.6021766208E-19
+'''
+electron charge magnitude (C)
+'''
+
+e0=8.854187817E-12
+'''
+permittivity of free space (N/m)
+'''
+
+u0=12.566370614E-7
+'''
+permeability of free space (N/A²)
+'''
+
 #####################
 # --- UNITS MANAGEMENT ---
 #
-#
+
 #The tranform everything to SI unitis
-#'''
-#m=1
-#
-#c = m/1E2
-#m = m/1E3
-#u = m/1E6
-#n = m/1E9  
-#'''
+'''
+m=1
+
+c = m/1E2
+m = m/1E3
+u = m/1E6
+n = m/1E9  
+'''
 #=======================================================================
 #==== FUNCTIONS ========================================================
 #=======================================================================
+#####################
+# --- OPERATIVE SYSTEM ---
+#
+def newdirectory (directory_name, cwd = None):
+    '''
+    This func is thought to create new directories considering that info
+    could be overwriten if we choose an existing path. For example we have
+    used this dic in a privious execution. It will ask the user if the path
+    exist. If it doesn't will create it.
+    
+    This func should work either on Linux or Windows.
+    
+    
+        PARAMETERS
+            directory_name, str: Is the name of the new directory
+            cwd = None, str: Is the path in which we want to create the
+                             new directory. If not provided, the current
+                             directory at which we are executing the file
+                             will be used
+                             
+        RETUNRS
+            newpath, str: Is the full path to the new directory
+    '''
+    #--- Check inputs are valid ----------------------------------------
+    assert isinstance(directory_name,str), "directory_name must be an string"
+    if cwd == None: cwd = os.getcwd()
+    else: 
+        assert isinstance(cwd,str), "The working directory must be an string"
+        assert os.path.exists(cwd), "The working directory must exist"
+    
+    #--- Create the directory ------------------------------------------
+    newpath = os.path.join(cwd,directory_name)
+    if os.path.isdir(newpath): #check if the directory we want to create
+                               #already exists
+        AskAgain = True
+        while AskAgain: #ask user if he wants to use the same directory
+            answer = input("%s already exists. If you continu all \
+the info in %s could be overwritten. Do you want to continue? (y/N): "
+%(directory_name,directory_name))
+            if answer.upper() == 'Y':
+                AskAgain = False
+                return(newpath)
+            elif answer == 'N' or answer == '':
+                exit(0) #end execution
+    else: #Directory doesn't exist create it
+        os.mkdir(newpath)
+        return(newpath)
+
+
 #####################
 # --- STATISTICS ---
 #
@@ -223,6 +262,9 @@ def series_ponderated_mean(x,y,dy):
     
     
     return x_values , y_values , dy_values
+    
+    
+
 
 #####################
 # --- REGRESION ---
@@ -502,18 +544,13 @@ This dict is used by data_plot function to get regresion from
 the different regresion functions. It's a private var
 '''
 
-def heaviside(x,diff=2):
-    '''
-    
-    '''
-    x[:-1] = np.where(np.diff(x) <= diff,x[:-1],np.nan)
-    return x
+
 
 
 #####################
 # --- PLOTTING ---
 #
-def funplot (f,xmin,xmax,n=100,fmt='',discon=False,diff=20 ,legend='',title='',xlabel='',
+def funplot (f,xmin,xmax,n=100,fmt='',legend='',title='',xlabel='',
 ylabel='',label='',adjust=False):
     '''
     Plots an |R --> |R fuction 
@@ -526,8 +563,6 @@ ylabel='',label='',adjust=False):
             OPTIONAL
             n, int: number of x divisions for x. 
             fmt, str: line format
-            discon, bool: avoid plotting vertical line on disco funcs
-            diff, number: max diference between two discontinus points to break vertical line
             legend, str: name of function for legend
             xlabel, str: xlabel
             ylabel, str: tlabel
@@ -540,8 +575,7 @@ ylabel='',label='',adjust=False):
     '''
     #plotting
     x  = np.linspace(xmin,xmax,n) #create x
-    if discon: heaviside(f(x))
-    else: y  = f(x) #eval func. Values will be used later.
+    y  = f(x) #eval func. Values will be used later.
     
     if fmt != '': #manage fmt provided or not by user
         gr = plt.plot(x,y,fmt,label=label) #plot
