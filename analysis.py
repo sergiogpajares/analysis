@@ -5,7 +5,7 @@
 #  analysis module
 #  Author: Sergio García Pajares
 #  Mail me  'uo272591@uniovi.es' or 'sergiogarciapajares@gmail.com'
-#  last update: 30-10-2019
+#  last update: 30-11-2019
 #
 #  ------> LICENSE <----------------------------------------------------
 #  
@@ -49,7 +49,7 @@ an mandatory course of Physics Degree at University of Oviedo.
 
 
 Author: Sergio García Pajares
-Last update: 30-10-2019
+Last update: 30-11-2019
 
 '''
 __all__ = [
@@ -719,7 +719,8 @@ def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',y
     
     #---ERROR BARS---
     if type(dx)!= str or type(dy)!= str : #Check if one of them is introduced
-        grb=plt.errorbar(x,y,xerr=dx,yerr=dy,fmt=fmt,ms=ms,ecolor=ecolor) #isn't labeled
+        grb=plt.errorbar(x,y,xerr=dx,yerr=dy,fmt=fmt,ms=ms,ecolor=ecolor,capsize=5,elinewidth=1,markeredgewidth=1) #isn't labeled
+                           # capsize, elinewidth, markeredgewidth formats the error bar
     #---NORMAL PLOTTING---
     gr=plt.plot(x,y,fmt,label=label,ms=ms)
     '''
@@ -736,14 +737,7 @@ def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',y
     
     
     rtype=type(regresion) #it's used serveral times
-    #---REGRESION----
-    '''
-        SERGIO DEL FUTURO, PLANTEATE CAMBIAR ESTA PUTA LOCURA DE CONDICIONALES
-        DE SÁBDO A LAS 12PM :( POR UN DICCIONARIO DE SUBRUTINAS QUE 
-        ACTÚE EN FUNCIÓN DEL TIPO Y SI ES TRUE O FALSE jeje
-    '''
-    
-    
+    #---REGRESION----   
     if regresion == False and rtype!=int: #check if user want regresion
         pass
     else:
