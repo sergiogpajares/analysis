@@ -63,43 +63,6 @@ __all__ = [
 'c','e','e0','u0'
 ]
 
-__version__ = '2.1.0'
-
-
-'''
-Versions history
-   2.1.0 
- ---------------------------
-   - ponderated_mean: added
-   - series_ponderated_mean: added
-
-   2.0.1 
- ---------------------------
-   - linear_origin_regresion: added
-
-   
-   2.0.0 
- ---------------------------
-   - general: inclusion of dynamic lambda use in regresion funtions and
-              data_plot
-   
-   - data_plot: linear coeficientes has been substituided by a regresion
-                funtion so, now plot can be used with any function. New
-                np parameter added.
-   - data_plot: no longer plots grid
-   - data_plot: ecolor parameter is now set 'k' by default
-   
-   - linear_ponderated: debuged 
-   
-   - data_multi_plots: disapears
-   - data_sin_plot: disapears
-    
-   Previous 
- ---------------------------
-    Not recorded
-
-'''
-
 #=======================================================================
 #==== IMPORTS ==========================================================
 #=======================================================================
