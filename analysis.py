@@ -5,7 +5,7 @@
 #  analysis module
 #  Author: Sergio García Pajares
 #  Mail me  'uo272591@uniovi.es' or 'sergiogarciapajares@gmail.com'
-#  last update: 30-11-2019
+#  last update: 17-12-2019
 #
 #  ------> LICENSE <----------------------------------------------------
 #  
@@ -45,11 +45,15 @@ an mandatory course of Physics Degree at University of Oviedo.
      - NumPy
      - SciPy
      - Matplotlib
+     
      - OS
 
 
 Author: Sergio García Pajares
-Last update: 30-11-2019
+Last update: 17-12-2019
+
+[WARNING] This version is an old version and API will change soon to 
+          implement POO. 
 
 '''
 __all__ = [
@@ -62,12 +66,46 @@ __all__ = [
 __version__ = '2.1.0'
 
 
+'''
+Versions history
+   2.1.0 
+ ---------------------------
+   - ponderated_mean: added
+   - series_ponderated_mean: added
+
+   2.0.1 
+ ---------------------------
+   - linear_origin_regresion: added
+
+   
+   2.0.0 
+ ---------------------------
+   - general: inclusion of dynamic lambda use in regresion funtions and
+              data_plot
+   
+   - data_plot: linear coeficientes has been substituided by a regresion
+                funtion so, now plot can be used with any function. New
+                np parameter added.
+   - data_plot: no longer plots grid
+   - data_plot: ecolor parameter is now set 'k' by default
+   
+   - linear_ponderated: debuged 
+   
+   - data_multi_plots: disapears
+   - data_sin_plot: disapears
+    
+   Previous 
+ ---------------------------
+    Not recorded
+
+'''
 
 #=======================================================================
 #==== IMPORTS ==========================================================
 #=======================================================================
-from numpy import *
+import numpy as np 
 import matplotlib.pyplot as plt
+#from ifc import skip_value
 from scipy.stats import itemfreq
 
 #=======================================================================
@@ -183,14 +221,14 @@ def ponderated_mean (x,dx):
             dx, number: error of the mean
                
     '''
-    x=asarray(x,dtype=float)
-    dx=asarray(dx,dtype=float)
+    x=np.asarray(x,dtype=float)
+    dx=np.asarray(dx,dtype=float)
     
     w=1/(dx**2)
-    sw=sum(w)
-    swx=sum(w*x)
+    sw=np.sum(w)
+    swx=np.sum(w*x)
     
-    return((swx/sw),(1/sqrt(sw)))
+    return((swx/sw),(1/np.sqrt(sw)))
     
 def series_ponderated_mean(x,y,dy):
     '''
@@ -235,22 +273,22 @@ def series_ponderated_mean(x,y,dy):
 
     '''
     
-    x=asarray(x)
-    y=asarray(y)
-    dy=asarray(dy)
+    x=np.asarray(x)
+    y=np.asarray(y)
+    dy=np.asarray(dy)
     
-    assert len(x.shape) == 1, "x must be a 1d array like object" 
+    assert np.len(x.shape) == 1, "x must be a 1d array like object" 
         #unique flatten arrays if axis is not specified
-    assert len(y.shape)  == 1, "y must be a 1d array like object"
-    assert len(dy.shape) == 1, "dy must be a 1d array like object"
-    assert size(x) == size (y), "x and y mus have the same number of elemnts"
-    assert size(y) == size(y), "y and dy must have the same number of elements"
+    assert np.len(y.shape)  == 1, "y must be a 1d array like object"
+    assert np.len(dy.shape) == 1, "dy must be a 1d array like object"
+    assert np.size(x) == np.size (y), "x and y mus have the same number of elemnts"
+    assert np.size(y) == np.size(y), "y and dy must have the same number of elements"
     
     
-    x_values  = unique(x) #get unique values of x
+    x_values  = np.unique(x) #get unique values of x
     
-    y_values  = ones_like(x_values,dtype=float) # create an array in which store y means
-    dy_values = ones_like(x_values,dtype=float) # create an array in which store dy of means
+    y_values  = np.ones_like(x_values,dtype=float) # create an array in which store y means
+    dy_values = np.ones_like(x_values,dtype=float) # create an array in which store dy of means
     
     i = 0 #initialice #it's the counter of x-values elements
     
@@ -311,26 +349,26 @@ def linear_regresion(x,y,f=False):
          
     '''
     #--- preparing inputs ---------------
-    x=asarray(x) #turn them into arrays
-    y=asarray(y)
+    x=np.asarray(x) #turn them into arrays
+    y=np.asarray(y)
     
-    x=skip_value(x) #skip None
-    y=skip_value(y)
+    x=np.skip_value(x) #skip None
+    y=np.skip_value(y)
     
     #--- checking -----------------------
-    assert len(x.shape)== 1, 'x must be a vector'
-    assert len(y.shape)== 1, 'y must be a vector'
-    assert size(x)==size(y), 'x and y must have the same number of elements'
+    assert np.len(x.shape) == 1, 'x must be a vector'
+    assert np.len(y.shape) == 1, 'y must be a vector'
+    assert np.size(x) == np.size(y), 'x and y must have the same number of elements'
     
     #--- calculate twice used values ----
-    N=size(x) #number of elements
+    N=np.size(x) #number of elements
     
-    sx=sum(x) #x sumation
-    sx2=sum(x*x) #x square sumation
+    sx=np.sum(x) #x sumation
+    sx2=np.sum(x*x) #x square sumation
     
-    sy=sum(y) #y sumation
+    sy=np.sum(y) #y sumation
     
-    sxy=sum(x*y) # xy sumation
+    sxy=np.sum(x*y) # xy sumation
         
     delta=float(N*sx2-sx**2) #common denominator for both paramenteres
     
@@ -341,19 +379,19 @@ def linear_regresion(x,y,f=False):
     b=((sx2*sy)-(sx*sxy))/(delta)
     
     #--- getting error ------------------
-    sigmay=sqrt((1./(N-2))*sum((y-b-a*x)**2))
+    sigmay=np.sqrt((1./(N-2))*np.sum((y-b-a*x)**2))
     
-    da=sigmay*sqrt(N/delta)
-    db=sigmay*sqrt(sx2/delta)
+    da=sigmay*np.sqrt(N/delta)
+    db=sigmay*np.sqrt(sx2/delta)
     
-    if f==False: return(a,b,da,db) #normal return
+    if f == False: return(a,b,da,db) #normal return
     
-    elif f==None: 
-        f=lambda x: a*x+b #Define reggresion func
+    elif f == None: 
+        f = lambda x: a*x+b #Define reggresion func
         return(f)
     
     else: #f==True
-        f=lambda x: a*x+b #Define regresion func
+        f = lambda x: a*x+b #Define regresion func
         return(a,b,da,db,f)
     
 def linear_ponderated_regresion(x,y,dy,f=False):
@@ -397,36 +435,36 @@ def linear_ponderated_regresion(x,y,dy,f=False):
          
     '''
     #--- preparing inputs ---------------
-    x=asarray(x) #turn them into arrays
-    y=asarray(y)
-    dy=asarray(dy)
+    x=np.asarray(x) #turn them into arrays
+    y=np.asarray(y)
+    dy=np.asarray(dy)
     
-    x=skip_value(x) #skip None
-    y=skip_value(y)
-    dy=skip_value(dy)
+    x=np.skip_value(x) #skip None
+    y=np.skip_value(y)
+    dy=np.skip_value(dy)
     
     #--- checking -----------------------
-    assert len(x.shape)== 1, 'x must be a vector'
-    assert len(y.shape)== 1, 'y must be a vector'
-    assert len(dy.shape)== 1, 'dy must be a vector'
+    assert np.len(x.shape)== 1, 'x must be a vector'
+    assert np.len(y.shape)== 1, 'y must be a vector'
+    assert np.len(dy.shape)== 1, 'dy must be a vector'
     
     
-    assert size(x)==size(y), 'x and y must have the same number of elements'
-    assert size(y)==size(dy), 'y and dy must have the same number of elements'
+    assert np.size(x)==np.size(y), 'x and y must have the same number of elements'
+    assert np.size(y)==np.size(dy), 'y and dy must have the same number of elements'
     
     #--- calculate twice used values ----
-    N=size(x) #number of elements
+    N=np.size(x) #number of elements
     w=1/(dy**2)
     
-    sw=sum(w)
+    sw=np.sum(w)
     
-    swx=sum(w*x) #x sumation
-    swx2=sum(w*x*x) #x square sumation
+    swx=np.sum(w*x) #x sumation
+    swx2=np.sum(w*x*x) #x square sumation
     
     wy=w*y
-    swy=sum(wy) #y sumation
+    swy=np.sum(wy) #y sumation
     
-    swxy=sum(w*x*y) # xy sumation
+    swxy=np.sum(w*x*y) # xy sumation
         
     delta=float(sw*swx2-(swx)**2) #common denominator for both paramenteres
     
@@ -437,8 +475,8 @@ def linear_ponderated_regresion(x,y,dy,f=False):
     b=(swx2*swy-(swx*swxy))/(delta)
         
     #--- getting error ------------------
-    da=sqrt(sw/delta)
-    db=sqrt(swx2/delta)
+    da=np.sqrt(sw/delta)
+    db=np.sqrt(swx2/delta)
     
     
     if f==False: return(a,b,da,db) #normal return
@@ -491,23 +529,23 @@ def linear_origin_regresion(x,y,f=False):
          
     '''
     #--- preparing inputs ---------------
-    x=asarray(x) #turn them into arrays
-    y=asarray(y)
+    x=np.asarray(x) #turn them into arrays
+    y=np.asarray(y)
     
-    x=skip_value(x) #skip None
-    y=skip_value(y)
+    x=np.skip_value(x) #skip None
+    y=np.skip_value(y)
     
     #--- checking -----------------------
-    assert len(x.shape)== 1, 'x must be a vector'
-    assert len(y.shape)== 1, 'y must be a vector'
-    assert size(x)==size(y), 'x and y must have the same number of elements'
+    assert np.len(x.shape)== 1, 'x must be a vector'
+    assert np.len(y.shape)== 1, 'y must be a vector'
+    assert np.size(x)==np.size(y), 'x and y must have the same number of elements'
     
     #--- calculate twice used values ----
-    N=size(x) #number of elements
+    N=np.size(x) #number of elements
     
-    sx2=sum(x*x) #x square sumation
+    sx2=np.sum(x*x) #x square sumation
     
-    sxy=sum(x*y) # xy sumation
+    sxy=np.sum(x*y) # xy sumation
     
     
     #--- getting linear coeficients -----
@@ -515,9 +553,9 @@ def linear_origin_regresion(x,y,f=False):
     a=sxy/sx2
     
     #--- getting error ------------------
-    sigmay=sqrt((1./(N-1))*sum((y-a*x)**2))
+    sigmay=np.sqrt((1./(N-1))*np.sum((y-a*x)**2))
     
-    da=sigmay/sqrt(sx2)
+    da=sigmay/np.sqrt(sx2)
     
     if f==False: return(a,da) #normal return
     
@@ -708,13 +746,13 @@ def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',y
             
             
     '''
-    x = asarray(x,dtype=float) #work with arrays
-    y = asarray(y,dtype=float)
+    x = np.asarray(x,dtype=float) #work with arrays
+    y = np.asarray(y,dtype=float)
     
-    x = skip_value(x) #skip none values
+    x = np.skip_value(x) #skip none values
     y = skip_value(y)
     
-    assert size(x) == size(y), "x and y must have the same number of elements"
+    assert np.size(x) == np.size(y), "x and y must have the same number of elements"
     
     
     #---ERROR BARS---
@@ -737,7 +775,14 @@ def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',y
     
     
     rtype=type(regresion) #it's used serveral times
-    #---REGRESION----   
+    #---REGRESION----
+    '''
+        SERGIO DEL FUTURO, PLANTEATE CAMBIAR ESTA PUTA LOCURA DE CONDICIONALES
+        DE SÁBDO A LAS 12PM :( POR UN DICCIONARIO DE SUBRUTINAS QUE 
+        ACTÚE EN FUNCIÓN DEL TIPO Y SI ES TRUE O FALSE jeje
+    '''
+    
+    
     if regresion == False and rtype!=int: #check if user want regresion
         pass
     else:
@@ -792,7 +837,7 @@ def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',y
         
         #---------- GETTING X POINTS
         assert type(np)==int, "np must be an int"
-        xr= linspace(xrmin,xrmax,np)
+        xr= np.linspace(xrmin,xrmax,np)
         
         #---------- PLOT REG   
         
@@ -834,7 +879,7 @@ def skip_value (x,value=None):
             narray: copy (not slice) of elements without the choosen 
                     values
     '''
-    x = asarray(x)
+    x = np.asarray(x)
     shape = x.shape #storing original shape
     x.shape = (x.size) #reshaping
     l=[] #empty list, declare
