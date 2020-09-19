@@ -58,9 +58,6 @@ or (at your option) any later version.
 
 [INFO]    Examples supposes that analysis has been imported as ana.
 
-[WARNING] This version is an old version and API will change soon to 
-          implement POO. 
-
 '''
 
 __all__ = ['DataPlot','Fit','funplot','fun3plot','ponderated_mean','series_ponderated_mean',
