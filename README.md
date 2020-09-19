@@ -1,4 +1,4 @@
-# Analysis
+# The package
 This module aims to make faster the process of fitting and plotting for the experimental subjects in the degree of Physics. It provides two classes to fit and plot + fit experimental data. Also some clasifying, file managment functions and plot customization functions. 
 
 # Dependencies
