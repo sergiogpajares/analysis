@@ -1,14 +1,8 @@
-# Disclaimer
-This module is a pre-release version before main implementation of classes and general curve fitting with the tools implemented in SciPy modules. 
-
-New versions will only support Python 3· 
-
-
+# Analysis
+This module aims to make faster the process of fitting and plotting for the experimental subjects in the degree of Physics. It provides two classes to fit and plot + fit experimental data. Also some clasifying, file managment functions and plot customization functions. 
 
 # Dependencies
 Actually, Matplotlib, NumPy and SciPy are required.
-
-
 
 # License
 
