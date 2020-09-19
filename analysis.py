@@ -4,8 +4,9 @@
 #
 #  analysis module
 #  Author: Sergio García Pajares
-#  Mail me  'uo272591@uniovi.es' or 'sergiogarciapajares@gmail.com'
-#  last update: 17-12-2019
+#  Mail me  'sergio.garcia.pajares @alumnos.uva.es' or 
+#           'sergiogarciapajares@gmail.com'
+#  last update: 19-09-2020
 #
 #  ------> LICENSE <----------------------------------------------------
 #  
@@ -30,13 +31,14 @@
 #==== INFO =============================================================
 #=======================================================================
 '''
-This is an analysis module developed for TEI (Experimetal Techniques I)
-an mandatory course of Physics Degree at University of Oviedo.
+This is an analysis module was originally developed for TEI (Experimetal
+Techniques I), an mandatory course of Physics Degree at University of
+Oviedo. But it's development was kept as a hobby for his author. 
 
     Contains:
-     - Regresion tools that gets the regresion coeficients
+     - Regresion tools that gets the fitting coeficients
      - Some analytic basic function to work with raw labdata
-     - Plot special funtion that manage errorbars and regresion
+     - Plot special funtion that manage errorbars and fitting
      - Some OS manage functions to automatize some common processes
      - Some physical constants
      
@@ -51,74 +53,78 @@ an mandatory course of Physics Degree at University of Oviedo.
 
 Author: Sergio García Pajares
 Last update: 17-12-2019
+Copyright: GNU General Public License either version 2 of the License,
+or (at your option) any later version.
+
+[INFO]    Examples supposes that analysis has been imported as ana.
 
 [WARNING] This version is an old version and API will change soon to 
           implement POO. 
 
 '''
-__all__ = [
-'ponderated_mean','data_plot','linear_regresion','linear_ponderated_regresion',
-'linear_origin_regresion','series_ponderated_mean','skip_value','funplot',
-'newdirectory','fun3plot',
-'c','e','e0','u0'
-]
+
+__all__ = ['DataPlot','Fit','funplot','fun3plot','ponderated_mean','series_ponderated_mean',
+            'newDirectory','autoPathRenamer','skip_value','legend','xrad','yrad','setLatex']
+
+__version__ = '2.99'
+
+
+'''
+Versions history
+   2.1.0 
+ ---------------------------
+   - ponderated_mean: added
+   - series_ponderated_mean: added
+
+   2.0.1 
+ ---------------------------
+   - linear_origin_regresion: added
+
+   
+   2.0.0 
+ ---------------------------
+   - general: inclusion of dynamic lambda use in regresion funtions and
+              data_plot
+   
+   - data_plot: linear coeficientes has been substituided by a regresion
+                funtion so, now plot can be used with any function. New
+                np parameter added.
+   - data_plot: no longer plots grid
+   - data_plot: ecolor parameter is now set 'k' by default
+   
+   - linear_ponderated: debuged 
+   
+   - data_multi_plots: disapears
+   - data_sin_plot: disapears
+    
+   Previous 
+ ---------------------------
+    Not recorded
+
+'''
 
 #=======================================================================
 #==== IMPORTS ==========================================================
 #=======================================================================
 import numpy as np 
+import matplotlib
 import matplotlib.pyplot as plt
-#from ifc import skip_value
 from scipy.stats import itemfreq
+from scipy.optimize import curve_fit
+import os
 
 #=======================================================================
 #==== DATA =============================================================
 #=======================================================================
 
-#####################
-# --- PHYSICAL CONSTANTS ---
-#
 
-c=299792458
-'''
-speed of light in vacuum (m/s)
-'''
-
-e=1.6021766208E-19
-'''
-electron charge magnitude (C)
-'''
-
-e0=8.854187817E-12
-'''
-permittivity of free space (N/m)
-'''
-
-u0=12.566370614E-7
-'''
-permeability of free space (N/A²)
-'''
-
-#####################
-# --- UNITS MANAGEMENT ---
-#
-
-#The tranform everything to SI unitis
-'''
-m=1
-
-c = m/1E2
-m = m/1E3
-u = m/1E6
-n = m/1E9  
-'''
 #=======================================================================
 #==== FUNCTIONS ========================================================
 #=======================================================================
 #####################
 # --- OPERATIVE SYSTEM ---
 #
-def newdirectory (directory_name, cwd = None):
+def newDirectory (directory_name, cwd = None):
     '''
     This func is thought to create new directories considering that info
     could be overwriten if we choose an existing path. For example we have
@@ -151,18 +157,79 @@ def newdirectory (directory_name, cwd = None):
                                #already exists
         AskAgain = True
         while AskAgain: #ask user if he wants to use the same directory
-            answer = input("%s already exists. If you continu all \
+            answer = input("%s already exists. If you continue all \
 the info in %s could be overwritten. Do you want to continue? (y/N): "
 %(directory_name,directory_name))
-            if answer.upper() == 'Y':
+            
+            answer = answer.upper()
+            if answer == 'Y':
                 AskAgain = False
                 return(newpath)
+                
             elif answer == 'N' or answer == '':
-                exit(0) #end execution
+                AskAgain = False
+            
+            else:
+                print("\nSorry, I couldn't understand you")
+                
+                # --- Change dir option ---
+                AskAgain2 = True #second question
+                while AskAgain2:
+                    answer = input("Do you want to enter a new directory name? (Y/n): ").upper()
+                    if answer == 'Y' or answer == '':
+                        AskAgain2 = False
+                        directory_name = input("\nPlease introduce the new directory name\n  ")
+                        newDirectory(directory_name,cwd)
+                        
+                    elif answer == 'N':
+                        exit(0) #end execution
+                    
+                    else:
+                        print("\nSorry, I couldn't understand you")
+    
     else: #Directory doesn't exist create it
         os.mkdir(newpath)
         return(newpath)
 
+def autoPathRenamer(path,log=False):
+    '''
+    Adds an  autonumber to the end of a file to path in case
+    the file already exist. In case the file has an extension
+    format is expected to be .aaa at the end of the filename.
+
+        PARAMETERS:
+            path, str: path to the file
+            log = False, bool: print or not in terminal info
+                
+        
+        RETURNS:
+            newpath, str
+    '''
+    if os.path.isfile(path):
+        
+        if log: print('[WARN] file <{}> already exist'.format(path))
+        counter=1
+
+        if path[-4] == '.': #case there's extension
+            extension = path[-4:]
+            path = path[:-4]+str(counter)+extension
+            while os.path.isfile(path):
+                counter += 1
+                digits = np.ceil(np.log10(counter))
+                if log: print('[WARN] file <{}> already exist'.format(path))
+                path = path[:-(digits+4)]+str(counter)+extension
+            
+        else:# case there is no extension
+            path = path[:-1]+str(counter)+extension
+            while os.path.isfile(path):
+                counter += 1
+                digits = np.ceil(np.log10(counter))
+                if log: print('[WARN] file <{}> already exist'.format(path))
+                path = path[:-digits]+str(counter)+extension
+        
+        if log: print("[INFO] Path has been changed to <{}>".format(path))
+    
+    return path
 
 #####################
 # --- STATISTICS ---
@@ -240,10 +307,10 @@ def series_ponderated_mean(x,y,dy):
     y=np.asarray(y)
     dy=np.asarray(dy)
     
-    assert np.len(x.shape) == 1, "x must be a 1d array like object" 
+    assert len(x.shape) == 1, "x must be a 1d array like object" 
         #unique flatten arrays if axis is not specified
-    assert np.len(y.shape)  == 1, "y must be a 1d array like object"
-    assert np.len(dy.shape) == 1, "dy must be a 1d array like object"
+    assert len(y.shape)  == 1, "y must be a 1d array like object"
+    assert len(dy.shape) == 1, "dy must be a 1d array like object"
     assert np.size(x) == np.size (y), "x and y mus have the same number of elemnts"
     assert np.size(y) == np.size(y), "y and dy must have the same number of elements"
     
@@ -256,7 +323,7 @@ def series_ponderated_mean(x,y,dy):
     i = 0 #initialice #it's the counter of x-values elements
     
     for value in x_values:
-        indices = where (x == value) #get indices of x original array
+        indices = np.where (x == value) #get indices of x original array
         y_values[i] , dy_values[i] = ponderated_mean(y[indices],dy[indices]) 
             #calculate for chosen values
         i += 1 #next x_value
@@ -271,7 +338,7 @@ def series_ponderated_mean(x,y,dy):
 # --- REGRESION ---
 #
 
-def linear_regresion(x,y,f=False):
+def linear_regresion(x,y,**kwargs):
     '''
     Calculates the linear regresion.
     
@@ -279,48 +346,35 @@ def linear_regresion(x,y,f=False):
             x, 1D-array-like: x points
             y, 1D-array-like: y points
             
-            OPTIONAL
-            f=False, bool or None: do you want a regresion funtion f(x) 
-                                   returned?
-                                    True: Returns f
-                                    False: Don't return f
-                                    
-                                    None: Only returns f.
-        
-        
         RETURNS:
-        
-        Depends on f optional parameter
+            For  y = a x + b 
             
-            if f == False
-                (a,b,da,db) tuple
-            
-            if f == True
-                (a,b,da,db,f) tuple
+                a,  float: a coeficient
+                b,  float: b coeficient
+                da, float: a error
+                db, float: b error
                 
-            if f == None
-                (f)
+                f, funtion: f(x)=ax+b
+        
+            ( (a,b) , (da,db) , r2 , f ) tuple
+        
+        DETAILS:
+        For more details about it's meaning and
+        calculation see: Introducción al Análisis
+        de errores, Johon R. Taylor (Reverté 2014)
                     
-         For  y = a x + b 
-            
-           a,  float: a coeficient
-           b,  float: b coeficient
-           da, float: a error
-           db, float: b error
-           
-           f, funtion: f(x)=ax+b
          
     '''
     #--- preparing inputs ---------------
     x=np.asarray(x) #turn them into arrays
     y=np.asarray(y)
     
-    x=np.skip_value(x) #skip None
-    y=np.skip_value(y)
+    #x=skip_value(x) #skip None
+    #y=skip_value(y)
     
     #--- checking -----------------------
-    assert np.len(x.shape) == 1, 'x must be a vector'
-    assert np.len(y.shape) == 1, 'y must be a vector'
+    assert len(x.shape) == 1, 'x must be a vector'
+    assert len(y.shape) == 1, 'y must be a vector'
     assert np.size(x) == np.size(y), 'x and y must have the same number of elements'
     
     #--- calculate twice used values ----
@@ -330,7 +384,7 @@ def linear_regresion(x,y,f=False):
     sx2=np.sum(x*x) #x square sumation
     
     sy=np.sum(y) #y sumation
-    
+    sy2=np.sum(y*y) #y square sumation
     sxy=np.sum(x*y) # xy sumation
         
     delta=float(N*sx2-sx**2) #common denominator for both paramenteres
@@ -344,20 +398,15 @@ def linear_regresion(x,y,f=False):
     #--- getting error ------------------
     sigmay=np.sqrt((1./(N-2))*np.sum((y-b-a*x)**2))
     
+    r2 = ( sxy - (sx*sy/N) )**2 / ( ( sx2-(sx**2/N))*(sy2 - (sy**2/N)) ) #correlation squared coeficient
+    
     da=sigmay*np.sqrt(N/delta)
     db=sigmay*np.sqrt(sx2/delta)
     
-    if f == False: return(a,b,da,db) #normal return
+    f = lambda x: a*x+b #Define regresion func
+    return( np.array([a,b]) ,np.array([da,db]) ,r2, f )
     
-    elif f == None: 
-        f = lambda x: a*x+b #Define reggresion func
-        return(f)
-    
-    else: #f==True
-        f = lambda x: a*x+b #Define regresion func
-        return(a,b,da,db,f)
-    
-def linear_ponderated_regresion(x,y,dy,f=False):
+def linear_ponderated_regresion(x,y,dy,**kwargs):
     '''
     Calculates the linear ponderated regresion.
     
@@ -366,28 +415,9 @@ def linear_ponderated_regresion(x,y,dy,f=False):
             y, 1D-array-like: y points
             dy, 1D-array-like: y error values
             
-            OPTIONAL
-            f=False, bool or None: do you want a regresion funtion f(x) 
-                                   returned?
-                                    True: Returns f
-                                    False: Don't return f
-                                    
-                                    None: Only returns f.
-        
-        RETURNS:
-           
-        Depends on f optional parameter
-            
-            if f == False
-                (a,b,da,db) tuple
-            
-            if f == True
-                (a,b,da,db,f) tuple
-                
-            if f == None
-                (f)
+         RETURNS:
                     
-         For  y = a x + b 
+        For  y = a x + b 
             
            a,  float: a coeficient
            b,  float: b coeficient
@@ -395,28 +425,29 @@ def linear_ponderated_regresion(x,y,dy,f=False):
            db, float: b error
            
            f, funtion: f(x)=ax+b
+        
+        ( (a,b) , (da,db) , r2 , f )
          
     '''
     #--- preparing inputs ---------------
-    x=np.asarray(x) #turn them into arrays
-    y=np.asarray(y)
-    dy=np.asarray(dy)
+    x  = np.asarray(x) #turn them into arrays
+    y  = np.asarray(y)
+    dy = np.asarray(dy)
     
-    x=np.skip_value(x) #skip None
-    y=np.skip_value(y)
-    dy=np.skip_value(dy)
+    #x  = skip_value(x) #skip None
+    #y  = skip_value(y)
+    #dy = skip_value(dy)
     
     #--- checking -----------------------
-    assert np.len(x.shape)== 1, 'x must be a vector'
-    assert np.len(y.shape)== 1, 'y must be a vector'
-    assert np.len(dy.shape)== 1, 'dy must be a vector'
+    assert len(x.shape) == 1, 'x must be a vector'
+    assert len(y.shape) == 1, 'y must be a vector'
+    assert len(dy.shape) == 1, 'dy must be a vector'
     
     
     assert np.size(x)==np.size(y), 'x and y must have the same number of elements'
     assert np.size(y)==np.size(dy), 'y and dy must have the same number of elements'
     
     #--- calculate twice used values ----
-    N=np.size(x) #number of elements
     w=1/(dy**2)
     
     sw=np.sum(w)
@@ -441,19 +472,13 @@ def linear_ponderated_regresion(x,y,dy,f=False):
     da=np.sqrt(sw/delta)
     db=np.sqrt(swx2/delta)
     
+    r2 = None #<----------------------------------------------------------------------------------------------------
     
-    if f==False: return(a,b,da,db) #normal return
-    
-    elif f==None: 
-        f=lambda x: a*x+b #Define reggresion func
-        return(f)
-    
-    else: #f==True
-        f=lambda x: a*x+b #Define regresion func
-        return(a,b,da,db,f)
+    f=lambda x: a*x+b #Define regresion func
+    return( np.array([a,b]) , np.array([da,db]), r2 , f )
 
 
-def linear_origin_regresion(x,y,f=False):
+def linear_origin_regresion(x,y,**kwargs):
     '''
     Calculates the linear regresion.
     
@@ -461,46 +486,29 @@ def linear_origin_regresion(x,y,f=False):
             x, 1D-array-like: x points
             y, 1D-array-like: y points
             
-            OPTIONAL
-            f=False, bool or None: do you want a regresion funtion f(x) 
-                                   returned?
-                                    True: Returns f
-                                    False: Don't return f
-                                    
-                                    None: Only returns f.
-        
-        
+            
         RETURNS:
-        
-        Depends on f optional parameter
-            
-            if f== False
-                (a,b,da,db) tuple
-            
-            if f== True
-                (a,b,da,db,f) tuple
-                
-            if f== None
-                (f)
                     
-         For  y = a x
+        For  y = a x
             
            a,  float: a coeficient
            da, float: a error
            
            f, funtion: f(x)=ax+b
+           
+        ( (a) , (da) , r , f )
          
     '''
     #--- preparing inputs ---------------
     x=np.asarray(x) #turn them into arrays
     y=np.asarray(y)
     
-    x=np.skip_value(x) #skip None
-    y=np.skip_value(y)
+    #x=skip_value(x) #skip None
+    #y=skip_value(y)
     
     #--- checking -----------------------
-    assert np.len(x.shape)== 1, 'x must be a vector'
-    assert np.len(y.shape)== 1, 'y must be a vector'
+    assert len(x.shape)== 1, 'x must be a vector'
+    assert len(y.shape)== 1, 'y must be a vector'
     assert np.size(x)==np.size(y), 'x and y must have the same number of elements'
     
     #--- calculate twice used values ----
@@ -519,40 +527,289 @@ def linear_origin_regresion(x,y,f=False):
     sigmay=np.sqrt((1./(N-1))*np.sum((y-a*x)**2))
     
     da=sigmay/np.sqrt(sx2)
+    r2 = None #<-----------------------------------------------------------------------------------------------------
     
-    if f==False: return(a,da) #normal return
+    f=lambda x: a*x #Define regresion func
+    return( np.array([a]) , np.array([da]) , r2 , f)
+
+def auto_linear(x,y,dx,dy):
+    '''
+    Choose which regresion between linear and linear ponderated is 
+    needed considering the type of dy.
     
-    elif f==None: 
-        f=lambda x: a*x #Define regresion func
-        return(f)
+    If dy is an array like 
     
-    else: #f==True
-        f=lambda x: a*x #Define regresion func
-        return(a,da,f)
+        PARAMETERS:
+            x, 1D-array-like: x points
+            y, 1D-array-like: y points
+            dx, number or array-like: x error
+            dy, number or array-like: y error
+                    
+        RETURNS:
+        For  y = a x + b 
+            
+           a,  float: a coeficient
+           b,  float: b coeficient
+           da, float: a error
+           db, float: b error
+           
+           f, funtion: f(x)=ax+b
+        
+        ( (a,b) , (da,db) , r2 , f )
+        
+         
+    '''
+    if len(dy)==1 or len(dy)==0: #It's a number
+        print("[INFO] linear regresion used")
+        return linear_regresion(x,y)
+    else: #It's an array like object
+        print("[INFO] linear ponderated regresion used")
+        return linear_ponderated_regresion(x,y,dy)
+    
+
+
+def custom_fitting (x,y,dy,func):
+    '''
+    Automated calling of scipy.optimeze.curve_fit
+    '''
+    if dy == []: dy = None #solve some implementation issue due to diference in DataPlot dy=[]
+                           #default argument and curve_fitting sigma = None expected
+    p, pcov, infodict, _, _ = curve_fit(func, x, y,sigma=dy, full_output=True)
+        #pcov is the covariance matrix of the parameters
+    dp = np.sqrt(np.diag(pcov)) # errores estándar de los parámetros
+
+    return (p,dp,1-(infodict['fvec']**2).sum()/((y-y.mean())**2).sum(),lambda t: func(t,*p))
+
+def noFit(**kwargs):
+    '''
+    No fitting function to allow use of ref=False in DataPlot func
+    '''
+    return ((),(),None,None)
+
+
+def sinusoidal(x,y,dy):
+
+    return custom_fitting(x,y,dy,lambda t, A, phi, B: A*np.sin(x + phi) + B)
+
+
+
+# ======================== FITTING CLASS ============================= #
+class Fit (object):
+    '''
+    This class aims to make easier fitting problems solution.
+    It's a wrapper around all fitting functions for easier use.
+    '''
+    regfuncs={
+        #This dict is used by fit class builder to calc regresion from
+        #the different regresion functions. Add here a regresion function
+        #and in fit.dict and fit.help and it will be implemented.
+        False              : (noFit,('No fitting',[],[])),
+        1                  : (auto_linear,('f(x)=ax+b',['a','b'] , ['da','db'])),
+        'auto_linear'      : (auto_linear,('f(x)=ax+b, auto linear',['a','b'] , ['da','db'])),
+        2                  : (linear_regresion, ('f(x)=ax+b',['a','b'] , ['da','db'])),
+        'linear'           : (linear_regresion, ('f(x)=ax+b, linear',['a','b'] , ['da','db'])),
+        3                  : (linear_ponderated_regresion,('f(x)=ax+b',['a','b'] , ['da','db'])),
+        'linear_ponderated': (linear_ponderated_regresion,('f(x)=ax+b, linear ponderated',['a','b'] , ['da','db'])),
+        4                  : (linear_origin_regresion,('f(x)=ax',['a'],['da'])),
+        'linear_origin'    : (linear_origin_regresion,('f(x)=ax',['a'],['da'])),
+        5                  : (sinusoidal,('f(x)=Asin(x+phi)+B',['A','phi','B'],['dA','dphi','dB'])),
+        'sinusoidal'       : (sinusoidal,('f(x)=Asin(x+phi)+B',['A','phi','B'],['dA','dphi','dB']))
+    }
+
+    def __init__ (self,x,y,dx=[],dy=[],reg=True):
+        '''
+            PARAMETERS  
+                x, array-like:
+                y, array-like:
+                
+                OPTIONAL
+                
+                dx, number or array-like:
+                dy, number or array-like:
+                
+                reg: type of fitting (see below)
+                
+                
+            ATTRIBUTES
+                p, numpy.array: array containing the fitting parameters
+                dp, numpy.array: array containing the estimated error on
+                                 fitting paramenters
+                r2, float: squared correlation coeficient R²
+                f, lambda.function: function f(x) representing the
+                                    fitted curve.
+                type: reg type provided by user
+                data, list [x,y,dx,dy]: original data provided by the user
+                dict, dictionary: This dictionary provides a user-friendly
+                      way to acces all info stored by the user. Including
+                      parameters in a human redable way.
+
+                      KEYS:
+                        x : x original data
+                        dx: x error original data
+                        y : y original data
+                        dy: y error original data
+                        f : fitted lambda.function
+                        r2: squared correlation coeficient R²
+
+                        Also all the keys of the parameters depending
+                        on the type of reg. To check such parameters
+                        see the regfuncs dictionary
+
+            
+            REGRESION POSIBILITIES
+            
+              =====================================================
+              |               REGRESION POSIBILITIES              |
+              |===================================================|
+              |             KEY          |          TYPE          |
+              |---+-----------------------------------------------|
+              | 0 | False                | No regresion drawn     |
+              |---+----------------------+------------------------|
+              | 1 | auto_linear          | linear or linear pon-  |
+              |   |                      | derated depending on   |
+              |   |                      | dy type (number or     |
+              |   |                      | array like)            |
+              |---+----------------------+------------------------|
+              | 2 | linear               | linear                 |
+              |---+----------------------+------------------------|
+              | 3 | linear_ponderated    | linear ponderated      |
+              |---+----------------------+------------------------|
+              | 4 | linear_origin        | linear crossing origin |
+              |---+----------------------+------------------------|
+              | 5 | sinusoidal           | sinusoidal             |
+              |---+----------------------+------------------------|
+              |   |                      |                        |
+              +--------------------------+------------------------|
+              | Function f(x) specififed by the user              |
+              =====================================================
+
+              Note: In case of user specified function format must
+              be  f(x,params) where params are the value we want to
+              estimate
+            
+            EXAMPLES
+                >>> import numpy, analysis
+                >>> x = [1,2,3,4]
+                >>> y = [2.8,3.9,6.1,7.9]
+                >>> 
+                >>> dx = [.02,.15,.10,.05]
+                >>> dy = [.9,.15,.2,.3]
+                >>> 
+                >>> myfit = analysis.fit(x,y,dx,dy,reg='linear_ponderated')
+                >>> print(myfit.p) #show parameters
+                       numpy.array([ 2.0101029  , -0.05116932 ])
+                >>> print(myfit.dp) #show error on parameters
+                       numpy.array([ 0.14936723 ,  0.39837133 ])
+                >>> print(myfit.dict['a']," +- ",myfit.dict['da'])
+                       2.0101029 +- 0.14936723
+        '''
+        if reg == False or reg == 'no':
+            #second assertion is to avoid interpreting 0 as False
+            self.p , self.dp , self.r2, self.f = None, None, None, None
+            self.type = reg
+            self.data = np.array([x,y,dx,dy])
+            
+        #--- Prepare data ---
+        x = np.asarray(x,dtype=float) #work with arrays
+        y = np.asarray(y,dtype=float)
+    
+        assert np.size(x) == np.size(y), "x and y must have the same number of elements"
         
         
+        #--- Get regresion ---
+        if isinstance(reg,(int,str)):
+            self.p , self.dp , self.r2 ,self.f = self.regfuncs[reg][0](x=x,y=y,dx=dx,dy=dy)
+        else: #Case of custom function instead of reg type
+            self.p , self.dp , self.r2 ,self.f = custom_fitting(x,y,dy,func=reg)
+        
+         # <- WHERE ->
+         #  self.p: params of fitting
+         #  self.dp: error of params of fitting
+         #  self.r2 square of correlation coeficient
+         #  self.f lambda func containing the fitted function
+        
+        #--- Customize instance ---
+        self.type = reg #reg type
+        self.data = [x,y,dx,dy] #original data provided
 
-_regresiones={
-  0                  : linear_regresion,
-  'linear'           : linear_regresion,
-  1                  : linear_ponderated_regresion,
-  'linear_ponderated': linear_ponderated_regresion,
-  2                  : linear_origin_regresion,
-  'linear_origin'    : linear_origin_regresion
-}
-'''
-This dict is used by data_plot function to get regresion from
-the different regresion functions. It's a private var
-'''
+        #--- Dictionary ---
+        self.dict = {
+            'x'   : self.data[0],
+            'y'   : self.data[1],
+            'dx'  : self.data[2],
+            'dy'  : self.data[3],
+            'type': self.type, #chage to human readable
+            'r2'  : self.r2,
+            'f'   : self.f,
+        }
 
+        #Defining parameters and error of parameters in terms of parameters name
+        #stored in regfuncs dictinary
+        human_names = self.regfuncs.get(self.type)#returns None if key is not avaible,
+                                                  # the case of user specified function
+        if human_names == None: #case user define function
+            for i in np.arange(len(self.p)):
+                self.dict.update(
+                    {
+                        'p'+str(i+1)  : self.p[i],
+                        'dp'+str(i+1): self.p[i]
+                    }
+                )
+        else:
+            human_names = human_names[1] #choose tuple of names
+            # params
+            for i in np.arange(len(human_names[1])):
+                self.dict.update( {human_names[1][i] : self.p[i]} )
+
+            #errors
+            for i in np.arange(len(human_names[2])):
+                self.dict.update( {human_names[2][i]:self.dp[i]} )
+        
+    def help (self):
+        '''
+        Prints info about the params
+        '''
+
+        try:
+            print(self.regfuncs[self.type][1][0]) #reimplement using, key is not in dicctionary
+        except:
+            print("Reg function was especified manually")
+
+    def GetType (self):
+        '''
+        Return human readable type of regresion
+        '''
 
 
 
 #####################
 # --- PLOTTING ---
 #
+def setLatex(mode='pdf'):
+    '''
+    Wrapper aroud matplotlib to use LaTeX rendering configuration
+    
+    IT MUST BE CALLED BEFORE ANY PLOTTING! I recommend to call it
+    just after importing matplotlib or matplotlib.pyplot
+
+    PARAMETERS
+        mode=pdf: it might be 'pdf' or 'png' depending on what
+           plt.savefig() we will like to use.
+
+           Note: pdf mode will also allow you to use plt.show()
+
+    '''
+
+    if mode=='pdf':
+        matplotlib.rcParams['text.usetex'] = True
+        matplotlib.rcParams['backend'] = 'pgf'
+    elif mode=='png':
+        matplotlib.rcParams['text.usetex'] = True
+        matplotlib.rcParams['backend'] = 'TkAgg'
+    else: raise ValueError("type must be 'pdf' or 'png'")
+
 def funplot (f,xmin,xmax,n=100,fmt='',legend='',title='',xlabel='',
-ylabel='',label='',adjust=False):
+ylabel='',label='',adjust=False,**aditional_plot_params):
     '''
     Plots an |R --> |R fuction 
     
@@ -568,6 +825,9 @@ ylabel='',label='',adjust=False):
             xlabel, str: xlabel
             ylabel, str: tlabel
             adjust, bool: for adjusting axis to xmin and xmax limits.
+
+            adtional_plot_params: all params accepted by
+                                  matplotlib.pyplot.plot()
         
         RETURNS
             A list of Line2D objects representing the plotted data.
@@ -579,16 +839,16 @@ ylabel='',label='',adjust=False):
     y  = f(x) #eval func. Values will be used later.
     
     if fmt != '': #manage fmt provided or not by user
-        gr = plt.plot(x,y,fmt,label=label) #plot
+        gr = plt.plot(x,y,fmt,label=label,**aditional_plot_params) #plot
     else:
-        gr = plt.plot(x,y,    label=label) #plot
+        gr = plt.plot(x,y,    label=label,**aditional_plot_params) #plot
     
     #personalization
     if legend != '' : plt.legend() #create legend
     if title != '' : plt.title('u'+title)
     if xlabel != '' : plt.xlabel('u'+xlabel)
     if ylabel != '' : plt.ylabel(ylabel)
-    if adjust == True : ptl.axis([xmin,xmax,np.min(y),np.max(y)])
+    if adjust == True : plt.axis([xmin,xmax,np.min(y),np.max(y)])
     
     return gr 
 
@@ -648,176 +908,210 @@ def fun3plot (F,x0,x1,y0,y1,z0,z1,n=10, ax=None, normalize=True):
     else:
         return ax.quiver(x, y, z, F_x*.1, F_y*.1, F_z*.1)
 
-
-def data_plot(x,y,fmt='bo',fmtr='b-',dx='',dy='',ecolor='k',label='',xlabel='',ylabel='',ms=3,regresion=None,np=300,extrapole=False,adjust=False):
+class DataPlot (Fit):
     '''
-    Plots a pair of data. It can also plot its error bars and
-    linear regresion. Regresion type can be specified (see below).
-    
-        PARAMETERS:
-            x, 1d array-like: x
-            y, 1d array-like: y
+    This class aims to make easier solving data plotting with 
+    (or without) fitting and it's plotting. It's used is focused on
+    pairs of data (x ~ y). It can also manage errorbar plotting.
+    '''
+    def __init__ (self,x,y,fmt='none',fmtr='none',reg=False,dx=[],dy=[],n=300,ax=None,**aditional_params): #quitar ax
+        '''
+        
+
+            PARAMETERS
+                x, array-like: x data to plot and fit
+                y, array-like: y data to plot and fit
+                fmt='none', str: format of points using 
+                                 matploplotlib.pyplot.plot()
+                fmtr='none',str: format of regresion line using
+                                 matploplotlib.pyplot.plot()
+                reg=False, number str or callable: type of regresion
+                        For types see below.
+                dx=[], number or array-like: standart errors
+                        of x-values drawing it's error bar
+                dy=[], number or array-like: standart errors
+                        of y-values for it's use in fitting and
+                        drawing of errorbars
+                n=300, int: number of points used to draw the fitted
+                            function
+                ax=None, matplotlib.axes: axes in wich points and fitted
+                                          function is drawn.
+                                          Default value will use
+                                          matplotlib.pyplot.gca()
+                **aditional_params: every parameter accpeted by 
+                                    matplotlib.pyplot.plot or 
+                                    matplotlib.pyplot.plot depending on
+                                    errorbars provided or not.
             
-            OPTIONAL
-            fmt='bo', str: format for the points
-            label='', str: label for data
-            dx='', 1d array-like or number: error values for x
-            dy='', 1d array-like or number: error values for y
-            ecolor='k', str: format for the color bar
-            ms=3, number: marker size
+            ATRIBUTES
+                p, numpy.array: array containing the fitting parameters
+                dp, numpy.array: array containing the estimated error on
+                                 fitting paramenters
+                r2, float: squared correlation coeficient R²
+                f, lambda.function: function f(x) representing the
+                                    fitted curve.
+                ax: axes in wich plot is made
+                gr: points plot
+                rgr: fitted curve plot
+                type: reg type provided by user
+                data, list [x,y,dx,dy]: original data provided by the user
+                dict, dictionary: This dictionary provides a user-friendly
+                      way to acces all info stored by the user. Including
+                      parameters in a human redable way.
+
+                      KEYS:
+                        x : x original data
+                        dx: x error original data
+                        y : y original data
+                        dy: y error original data
+                        f : fitted lambda.function
+                        r2: squared correlation coeficient R²
+
+                        Also all the keys of the parameters depending
+                        on the type of reg. To check such parameters
+                        see the regfuncs dictionary
+
+                        Note: in case user defined reg function the key
+                        of paramters will be  p1 , p2 , ... ,pn and 
+                        dp1 , dp2 , ... , dpn
+
             
-            -----
-            y=ax+b
-            regresion=None, : Do we want to draw linear regresion?
-                                Values can be: 
-                                
+            REGRESION POSIBILITIES
+            
               =====================================================
               |               REGRESION POSIBILITIES              |
               |===================================================|
               |             KEY          |          TYPE          |
               |---+-----------------------------------------------|
-              | 0 | linear               | linear                 |
-              | 1 | linear_ponderated    | linear ponderated      |
-              | 2 | linear_origin        | linear crossing origin |
+              | 0 | False                | No regresion drawn     |
+              |---+----------------------+------------------------|
+              | 1 | auto_linear          | linear or linear pon-  |
+              |   |                      | derated depending on   |
+              |   |                      | dy type (number or     |
+              |   |                      | array like)            |
+              |---+----------------------+------------------------|
+              | 2 | linear               | linear                 |
+              |---+----------------------+------------------------|
+              | 3 | linear_ponderated    | linear ponderated      |
+              |---+----------------------+------------------------|
+              | 4 | linear_origin        | linear crossing origin |
+              |---+----------------------+------------------------|
+              | 5 | sinusoidal           | sinusoidal             |
+              |---+----------------------+------------------------|
               |   |                      |                        |
-              |--------------------------+------------------------|
-              | None  (or True)          | linear or linear pon-  |
-              |                          | derated depending on   |
-              |                          | dy type (number or     |
-              |                          | array like)            |
-              |--------------------------+------------------------|
-              | False                    | No regresion drawn     |
-              -----------------------------------------------------
+              +--------------------------+------------------------|
               | Function f(x) specififed by the user              |
               =====================================================
-                                   
-            fmtr='b-', str: format for regresion line
-            extrapole=False, bool: Do we want regresion crossing
-            np=300, int: Number of points used for regresion
-            
-            -----
-            adjust=False, bool: It adjust graphic axis to data
-        
-        RETURNS: 
-            if regresion is drawn:
-                tuple (gr,regr)
-                    gr:   points draw object
-                    regr: regresion draw object
-                        
-            if regresion isn't drawn:
-                gr: points draw object
-            
-            
-    '''
-    x = np.asarray(x,dtype=float) #work with arrays
-    y = np.asarray(y,dtype=float)
-    
-    x = np.skip_value(x) #skip none values
-    y = skip_value(y)
-    
-    assert np.size(x) == np.size(y), "x and y must have the same number of elements"
-    
-    
-    #---ERROR BARS---
-    if type(dx)!= str or type(dy)!= str : #Check if one of them is introduced
-        grb=plt.errorbar(x,y,xerr=dx,yerr=dy,fmt=fmt,ms=ms,ecolor=ecolor,capsize=5,elinewidth=1,markeredgewidth=1) #isn't labeled
-                           # capsize, elinewidth, markeredgewidth formats the error bar
-    #---NORMAL PLOTTING---
-    gr=plt.plot(x,y,fmt,label=label,ms=ms)
-    '''
-    For avoinding weird legend as temporal normal plotting must be
-    overplot on errorbar plotting. Only this second plot will be
-    labeled so legend will not be modified.
-    '''
-    
-    #---SETTING UP FORMAT---
-    if xlabel != '': plt.xlabel(xlabel)
-    if ylabel != '': plt.ylabel(ylabel)
-    if adjust : plt.axis([min(x),max(x),min(y),max(y)])
-    
-    
-    
-    rtype=type(regresion) #it's used serveral times
-    #---REGRESION----
-    '''
-        SERGIO DEL FUTURO, PLANTEATE CAMBIAR ESTA PUTA LOCURA DE CONDICIONALES
-        DE SÁBDO A LAS 12PM :( POR UN DICCIONARIO DE SUBRUTINAS QUE 
-        ACTÚE EN FUNCIÓN DEL TIPO Y SI ES TRUE O FALSE jeje
-    '''
-    
-    
-    if regresion == False and rtype!=int: #check if user want regresion
-        pass
-    else:
-        #---------- GET REG FUNNTION
-        dytype=type(dy) #it's used several times
-        if regresion == None or regresion == True and rtype!=int: #True for backward working
-                #user wants regresion but haven't specified which one
-                #automatic choosing depending on if dy values
-                #are a single number or an array-like object (linear or
-                #ponderated_linear)
-            
-            if dytype==ndarray or dytype==list or dytype==tuple:
-                fr=linear_ponderated_regresion(x,y,dy,None)
-            
-            elif dytype==str: #not specified
-                fr= linear_regresion(x,y,None)
-            else: #it's a number
-                fr= linear_regresion(x,y,None)
-        
-        elif isinstance(regresion, (int, long, float, complex)): #it's a number
-            if _regresiones[regresion]==linear_ponderated_regresion:
-                assert type(dy)==ndarray or type(dy)==list or type(dy)==tuple,\
-                "If linear ponderated regresion is choosen, dy must be specified as an array-like object. Otherwise use normal linear regresion" 
-                assert size(dy)==size(y), "y and dy must have the same number of elements"
+
+              Note: In case of user specified function format must
+              be  f(x,params) where params are the value we want to
+              estimate
+
                 
-                fr=linear_ponderated_regresion(x,y,dy,None)
-            else:
-                fr=_regresiones[regresion](x,y,None)
-            '''
-            Asking func dict. As far as my imagination isn't enough and
-            linear_ponderated takes an aditionar parameter, the first
-            if checks isn't linear_poderated.
-            '''
-        
-        else:# rtype == function:  #user specifies the function
-            fr=regresion
-            
-            
-        
-        
-        
-        
-        #---------- EXTRAPOLE OPTIONS
-        if extrapole: #True
-            xrmin,xrmax,_,_=plt.axis() #get actual axis limits
-            plt.gca().autoscale(enable=False, axis='both')
-        else: #False
-            xrmin=min(x)
-            xrmax=max(x)
-        
-        
-        
-        #---------- GETTING X POINTS
-        assert type(np)==int, "np must be an int"
-        xr= np.linspace(xrmin,xrmax,np)
-        
-        #---------- PLOT REG   
-        
-        rgr=plt.plot(xr,fr(xr),fmtr,alpha=0.3) #plot regresion 
+
+                
         '''
-        alpha parameter makeS it transparent so it looks better.
+        
+        # -- PREPARE INPUT --
+        x = np.asarray(x,dtype=float) #work with arrays
+        y = np.asarray(y,dtype=float)
+
+        assert np.size(x) == np.size(y), "x and y must have the same number of elements"
+        if reg in (1,'auto_linear',2,'linear',3,'linear_ponderated',4,'linear_origin'): n = 2 #simplify in linear cases
+        
+        
+        if ax == None: self.ax = plt.gca()
+        else: self.ax = ax
+        #else: assert isinstance(ax,matplotlib.axes) , "ax is not a valid axis"
+        
+        #change default matplotlib parmaters in case not porvided
+        nondefaulterrorparams = [('ms'           , 3 ), #marker size
+                                 ('ecolor'       ,'k'), #errorbar color
+                                 ('capsize'        ,5), #errorbar cap size
+                                 ('elinewidth'     ,1), #errorbar line width
+                                 ('markeredgewidth',1)] #error bar cap width
+        
+        # -- POINTS PLOTTING --
+        if len(dx)!=0  or len(dy)!= 0 : #Check if one of them is introduced
+            for key , value in nondefaulterrorparams:
+                if not key in aditional_params: # if a new value has not 
+                                                # been provided add it
+                    aditional_params.update( { key : value } )
+        
+            self.gr = plt.errorbar(x,y,xerr=dx,yerr=dy,fmt=fmt,**aditional_params)
+            
+        else:
+            self.gr = plt.plot(x,y,fmt,**aditional_params)
+        
+        # -- REGRESION --
+        super().__init__(x,y,dx,dy,reg)
+                #make regresion from parent class and get all
+                #parameters set up for regresion
+
+        sample = np.linspace(np.min(x),np.max(x),n,endpoint=True)
+        self.rgr = plt.plot(sample,self.f(sample),fmtr,alpha=.3)
+            
+def xrad(ax=None):#multiples=np.pi/3,ax=None):
+    '''
+    Change x axis thicks to radians in terms of pi
+
+        PARAMETERS:
+            ax=None: axes in wich change the labels
+            Default parameters uses matplotlib.pyplot.gca()
+    '''
+    if ax == None: ax=plt.gca()
+    ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 2))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 8))
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(format_func))   
+        
+        
+def yrad(ax=None):#multiples=np.pi/3,ax=None):
+    '''
+    Change y axis thicks to radians in terms of pi
+
+        PARAMETERS:
+            ax=None: axes in wich change the labels
+            Default parameters uses matplotlib.pyplot.gca()
+    '''
+    if ax == None: ax=plt.gca()
+    ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 2))
+    ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 8))
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
+
+def format_func(value, tick_number):
+    '''
+    Auxiliar function for yrad and xrad
+    '''
+    # find number of multiples of pi/2
+    N = int(round(2 * value / np.pi))
+    if N == 0:
+        return "0"
+    elif N == 1:
+        return r"$\pi/2$"
+    elif N == 2:
+        return r"$\pi$"
+    elif N % 2 > 0:
+        return r"$%d\pi/2$"%(N)
+    else:
+        return r"$%d\pi$"%(N // 2)
+
+def legend(ax=None):
         '''
-        return gr,rgr
-    
+        Show legend without displaying error bars
 
-    return gr
+            PARAMETERS:
+                ax, axes: axes in wich to draw legend
+                    If not specified matplotlib.pyplot.gca()
+                    is used.
+            RETURNS:
+                legend object
+        '''
+        #remove error bar from legend
+        if ax == None: ax = plt.gca()
+        handles, labels = ax.get_legend_handles_labels()
+        handles = [handle[0] for handle in handles]
 
-
-
-
-
-
+        return ax.legend(handles, labels)
 
 
 ############
@@ -843,10 +1137,11 @@ def skip_value (x,value=None):
                     values
     '''
     x = np.asarray(x)
-    shape = x.shape #storing original shape
     x.shape = (x.size) #reshaping
     l=[] #empty list, declare
     for i in range(x.size):
         if x[i] != value : l.append(i)
     
+
     return x[l]
+
