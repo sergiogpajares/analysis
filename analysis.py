@@ -6,7 +6,7 @@
 #  Author: Sergio García Pajares
 #  Mail me  'sergio.garcia.pajares @alumnos.uva.es' or 
 #           'sergiogarciapajares@gmail.com'
-#  last update: 19-09-2020
+#  last update: 24-09-2020
 #
 #  ------> LICENSE <----------------------------------------------------
 #  
@@ -32,8 +32,8 @@
 #=======================================================================
 '''
 This is an analysis module was originally developed for TEI (Experimetal
-Techniques I), an mandatory course of Physics Degree at University of
-Oviedo. But it's development was kept as a hobby for his author. 
+Techniques I), a compulsary course of Physics Degree at University of
+Oviedo. But its development was kept as a hobby for his author. 
 
     Contains:
      - Regresion tools that gets the fitting coeficients
@@ -52,7 +52,7 @@ Oviedo. But it's development was kept as a hobby for his author.
 
 
 Author: Sergio García Pajares
-Last update: 17-12-2019
+Last update: 29-09-2020
 Copyright: GNU General Public License either version 2 of the License,
 or (at your option) any later version.
 
@@ -63,7 +63,40 @@ or (at your option) any later version.
 __all__ = ['DataPlot','Fit','funplot','fun3plot','ponderated_mean','series_ponderated_mean',
             'newDirectory','autoPathRenamer','skip_value','legend','xrad','yrad','setLatex']
 
-__version__ = '3.0.0'
+__version__ = '3.0.3'
+
+
+'''
+Versions history
+   2.1.0 
+ ---------------------------
+   - ponderated_mean: added
+   - series_ponderated_mean: added
+
+   2.0.1 
+ ---------------------------
+   - linear_origin_regresion: added
+
+   
+   2.0.0 
+ ---------------------------
+   - general: inclusion of dynamic lambda use in regresion funtions and
+              data_plot
+   
+   - data_plot: linear coeficientes has been substituided by a regresion
+                funtion so, now plot can be used with any function. New
+                np parameter added.
+   - data_plot: no longer plots grid
+   - data_plot: ecolor parameter is now set 'k' by default
+   
+   - linear_ponderated: debuged 
+   
+   - data_multi_plots: disapears
+   - data_sin_plot: disapears
+    
+   Previous 
+ ---------------------------
+    Not recorded
 
 '''
 
@@ -586,6 +619,8 @@ class Fit (object):
                 x, array-like:
                 y, array-like:
                 
+                Note: Nan, values are skiped in calc
+
                 OPTIONAL
                 
                 dx, number or array-like:
@@ -667,19 +702,27 @@ class Fit (object):
                 >>> print(myfit.dict['a']," +- ",myfit.dict['da'])
                        2.0101029 +- 0.14936723
         '''
-        if reg == False or reg == 'no':
-            #second assertion is to avoid interpreting 0 as False
+        if reg == False:
             self.p , self.dp , self.r2, self.f = None, None, None, None
-            self.type = reg
-            self.data = np.array([x,y,dx,dy])
             
+
+
         #--- Prepare data ---
         x = np.asarray(x,dtype=float) #work with arrays
         y = np.asarray(y,dtype=float)
     
         assert np.size(x) == np.size(y), "x and y must have the same number of elements"
-        
-        
+
+        #--- Skip nans ---
+        whereNotNaN = ~(np.isnan(x) + np.isnan(y))
+        if whereNotNaN.any(): print("[WARN] Some nan values were ignored")
+        x = x[whereNotNaN]
+        y = y[whereNotNaN]
+
+        #--- Customize instance ---
+        self.type = reg #reg type
+        self.data = [x,y,dx,dy] #original data provided
+
         #--- Get regresion ---
         if isinstance(reg,(int,str)):
             self.p , self.dp , self.r2 ,self.f = self.regfuncs[reg][0](x=x,y=y,dx=dx,dy=dy)
@@ -691,10 +734,6 @@ class Fit (object):
          #  self.dp: error of params of fitting
          #  self.r2 square of correlation coeficient
          #  self.f lambda func containing the fitted function
-        
-        #--- Customize instance ---
-        self.type = reg #reg type
-        self.data = [x,y,dx,dy] #original data provided
 
         #--- Dictionary ---
         self.dict = {
@@ -723,12 +762,30 @@ class Fit (object):
             human_names = human_names[1] #choose tuple of names
             # params
             for i in np.arange(len(human_names[1])):
-                self.dict.update( {human_names[1][i] : self.p[i]} )
+                self.dict.update( {human_names[1][i] : self.p[i]}  )
+                self.dict.update( {human_names[2][i] : self.dp[i]} )
 
-            #errors
-            for i in np.arange(len(human_names[2])):
-                self.dict.update( {human_names[2][i]:self.dp[i]} )
+    def __str__(self):
+        '''
+        Show all the information relevant about the fit, including type and 
+        '''
+
+        string = "    Reg type:    {} \n---------------------------------------------------\n".format(self.regfuncs[self.type][1][0])
+        for i in np.arange(len(self.p)):
+            string = string + "{}: {}  +- {}\n".format(self.regfuncs[self.type][1][1][i],self.p[i],self.dp[i])
         
+        return string
+    
+    def __len__(self):
+        '''
+        Return the number of paramenters that the fit has
+        '''
+        return len(self.p)
+    
+    def __getitem__(self,item):
+        #This function allow us to directly acces self.dict without accesing the dictionary
+        return self.dict.__getitem__(item)
+
     def help (self):
         '''
         Prints info about the params
@@ -988,23 +1045,30 @@ class DataPlot (Fit):
         else: self.ax = ax
         #else: assert isinstance(ax,matplotlib.axes) , "ax is not a valid axis"
         
-        #change default matplotlib parmaters in case not porvided
-        nondefaulterrorparams = [('ms'           , 3 ), #marker size
-                                 ('ecolor'       ,'k'), #errorbar color
-                                 ('capsize'        ,5), #errorbar cap size
-                                 ('elinewidth'     ,1), #errorbar line width
-                                 ('markeredgewidth',1)] #error bar cap width
         
         # -- POINTS PLOTTING --
-        if len(dx)!=0  or len(dy)!= 0 : #Check if one of them is introduced
+        if dx!=[]  or dy!= [] : #Check if one of them is introduced
+            #change default matplotlib parmaters in case not porvided
+            nondefaulterrorparams = [('ms'           , 3 ), #marker size
+                                     ('ecolor'       ,'k'), #errorbar color
+                                     ('capsize'        ,5), #errorbar cap size
+                                     ('elinewidth'     ,1), #errorbar line width
+                                     ('markeredgewidth',1)] #error bar cap width
             for key , value in nondefaulterrorparams:
                 if not key in aditional_params: # if a new value has not 
                                                 # been provided add it
                     aditional_params.update( { key : value } )
-        
-            self.gr = plt.errorbar(x,y,xerr=dx,yerr=dy,fmt=fmt,**aditional_params)
+
+            # detect which errors were 
+            if dx != []:
+                if dy != []:
+                    self.gr = plt.errorbar(x,y,xerr=dx,yerr=dy,fmt=fmt,**aditional_params)
+                else:
+                    self.gr = plt.errorbar(x,y,xerr=dx,fmt=fmt,**aditional_params)
+            else:
+                self.gr = plt.errorbar(x,y,yerr=dy,fmt=fmt,**aditional_params)
             
-        else:
+        else: 
             self.gr = plt.plot(x,y,fmt,**aditional_params)
         
         # -- REGRESION --
@@ -1012,8 +1076,9 @@ class DataPlot (Fit):
                 #make regresion from parent class and get all
                 #parameters set up for regresion
 
-        sample = np.linspace(np.min(x),np.max(x),n,endpoint=True)
-        self.rgr = plt.plot(sample,self.f(sample),fmtr,alpha=.3)
+        if reg != False:
+            sample = np.linspace(np.min(self.data[0]),np.max(self.data[0]),n,endpoint=True)
+            self.rgr = plt.plot(sample,self.f(sample),fmtr,alpha=.3)
             
 def xrad(ax=None):#multiples=np.pi/3,ax=None):
     '''
@@ -1059,7 +1124,7 @@ def format_func(value, tick_number):
     else:
         return r"$%d\pi$"%(N // 2)
 
-def legend(ax=None):
+def legend(ax=None, **kwargs):
         '''
         Show legend without displaying error bars
 
@@ -1067,6 +1132,7 @@ def legend(ax=None):
                 ax, axes: axes in wich to draw legend
                     If not specified matplotlib.pyplot.gca()
                     is used.
+                kwargs: Any matplotlib.pyplot.legend() argument
             RETURNS:
                 legend object
         '''
@@ -1075,7 +1141,7 @@ def legend(ax=None):
         handles, labels = ax.get_legend_handles_labels()
         handles = [handle[0] for handle in handles]
 
-        return ax.legend(handles, labels)
+        return ax.legend(handles, labels,**kwargs)
 
 
 ############
@@ -1108,4 +1174,25 @@ def skip_value (x,value=None):
     
 
     return x[l]
+
+def filter_2nan(x,y):
+    '''
+    Filter nan values from array of points to be plotted. 
+    If one nan in encounter in one of  the arrays the value
+    is erased from both arrays
+
+    PARAMETERS 
+        x, np.array
+        y, np.array
+
+    Note: Both must be 1-dimensional and have the same number of
+    elements. No check is performed.
+
+    RETURNS
+        Arrays slices or the original ones
+        (x , y)
+    '''
+
+    whereNotNaN = ~(np.isnan(x) + np.isnan(y))
+    return x[whereNotNaN] , y[whereNotNaN]
 
