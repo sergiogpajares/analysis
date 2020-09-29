@@ -774,6 +774,8 @@ class Fit (object):
         for i in np.arange(len(self.p)):
             string = string + "{}: {}  +- {}\n".format(self.regfuncs[self.type][1][1][i],self.p[i],self.dp[i])
         
+        string = string + "  r2 = {}".format(self.r2)
+
         return string
     
     def __len__(self):
