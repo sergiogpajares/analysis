@@ -6,7 +6,7 @@
 #  Author: Sergio García Pajares
 #  Mail me  'sergio.garcia.pajares @alumnos.uva.es' or 
 #           'sergiogarciapajares@gmail.com'
-#  last update: 24-09-2020
+#  last update: 04-10-2020
 #
 #  ------> LICENSE <----------------------------------------------------
 #  
@@ -52,7 +52,7 @@ Oviedo. But its development was kept as a hobby for his author.
 
 
 Author: Sergio García Pajares
-Last update: 29-09-2020
+Last update: 04-10-2020
 Copyright: GNU General Public License either version 2 of the License,
 or (at your option) any later version.
 
@@ -61,9 +61,10 @@ or (at your option) any later version.
 '''
 
 __all__ = ['DataPlot','Fit','funplot','fun3plot','ponderated_mean','series_ponderated_mean',
-            'newDirectory','autoPathRenamer','skip_value','legend','xrad','yrad','setLatex']
+            'newDirectory','autoPathRenamer','skip_value','legend','xrad','yrad','setLatex',
+            'mean','seriesMean']
 
-__version__ = '3.0.3'
+__version__ = '3.0.4'
 
 
 '''
@@ -106,7 +107,7 @@ Versions history
 import numpy as np 
 import matplotlib
 import matplotlib.pyplot as plt
-from scipy.stats import itemfreq
+from scipy.stats import itemfreq, t
 from scipy.optimize import curve_fit
 import os
 
@@ -231,6 +232,43 @@ def autoPathRenamer(path,log=False):
 #####################
 # --- STATISTICS ---
 #
+def mean(x,confidence=None):
+    '''
+    Get mean and it's error
+        PARAMETERS
+            x, 1D array-like: data
+            norm, bool: True indecates errors are
+              assumed normal and t-student pivot is
+              used
+            confidence, float (0,1): confidence level
+              for error estimation
+            
+            Note: nan values are skipped
+
+        RETURNS
+            mean and it's error
+             _    _
+            (x , dx)  
+    '''
+    #--- Prepare input ---
+    x = np.asarray(x)
+    N = len(x)
+
+    whereNotNaN = ~np.isnan(x)
+    if not whereNotNaN.any():
+        print("[WARN] Some nan values were ignored")
+        x = x[whereNotNaN]
+
+    #--- Get calc ---
+    mean = x.mean()
+    dmean = np.sqrt(((x-mean)**2).sum()/(N*(N-1)))
+    if confidence != None:
+        dmean = t.ppf((1+confidence)/2,df=N-1) * dmean
+
+
+    return ( mean , dmean )
+
+
 def ponderated_mean (x,dx):
     '''
     Calculates ponderated mean
@@ -327,21 +365,89 @@ def series_ponderated_mean(x,y,dy):
     
     
     return x_values , y_values , dy_values
-    
-    
 
+def seriesMean(x,y,confidence=None):
+    '''
+    Calculates the mean of a secuence
+
+        PARAMETERS:
+            x,  1d-array like: x values
+            y,  1d-array like: y values in which mean is 
+                               going to be calculated
+            confidence = None, number 0<confidence<1:
+                if specified dy returns confidence t-student interval
+        
+        RETURNS:
+                      _    _
+          (x-unique , y , dy )
+            
+             x-unique, 1d-array: unique values in the original data sheet
+             _
+             y, 1d-array: mean of the elements with same x value
+              _
+             dy, 1d-array: error of the mean of the same x elements
+        
+        
+        EXAMPLE 
+        
+         GIVEN:              RETURNED:
+         --------------                  _        _
+         | x   y   dy |      X-unique    y       dy
+         |------------|  
+         | 1  5.1  .2 |         1       5.02    11.01   
+         | 1  4.9  .1 |
+         |------------|         2       0.04     0.08
+         | 2  10   .3 |
+         |------------|
+         | 1  5.2  .1 |
+         |------------|
+         | 2  11   .1 |
+         | 2  12   .2 |
+         | 2   8   .5 |
+         |------------|
+         | 1  5.0 .05 |
+         --------------
+
+    '''
+    #prepare input
+    x=np.asarray(x)
+    y=np.asarray(y)
+    
+    assert len(x.shape) == 1, "x must be a 1d array like object" 
+        #unique flatten arrays if axis is not specified
+    assert len(y.shape)  == 1, "y must be a 1d array like object"
+    assert np.size(x) == np.size (y), "x and y mus have the same number of elemnts"
+    assert np.size(y) == np.size(y), "y and dy must have the same number of elements"
+
+    # clasify
+    x_values, x_values_indices  = np.unique(x,return_index=True) #get unique values of x
+    x_values_indices = np.sort(x_values_indices)
+    y_values  = np.empty_like(x_values,dtype=float) # create an array in which store y means
+    dy_values = np.empty_like(x_values,dtype=float) # create an array in which store dy of means
+
+
+    for i in np.arange(len(x_values)):
+        indices = np.where(x == x[x_values_indices[i]])
+        y_values[i] , dy_values[i] = mean(y[indices],confidence=confidence)
+    
+    return x[x_values_indices] , y_values , dy_values
 
 #####################
 # --- REGRESION ---
 #
 
-def linear_regresion(x,y,**kwargs):
+def linear_regresion(x,y,confidence=None,**kwargs):
     '''
     Calculates the linear regresion.
     
         PARAMETERS:
             x, 1D-array-like: x points
             y, 1D-array-like: y points
+            norm, bool: True indecates errors are
+              assumed normal and t-student pivot is
+              used
+            confidence, float (0,1): confidence level
+              for error estimation
             
         RETURNS:
             For  y = a x + b 
@@ -373,7 +479,7 @@ def linear_regresion(x,y,**kwargs):
     assert len(x.shape) == 1, 'x must be a vector'
     assert len(y.shape) == 1, 'y must be a vector'
     assert np.size(x) == np.size(y), 'x and y must have the same number of elements'
-    
+
     #--- calculate twice used values ----
     N=np.size(x) #number of elements
     
@@ -400,6 +506,15 @@ def linear_regresion(x,y,**kwargs):
     da=sigmay*np.sqrt(N/delta)
     db=sigmay*np.sqrt(sx2/delta)
     
+    if confidence != None:
+        # In case t-student is supposed to be used
+        # Case normal errors are assumed instead of
+        # general pivot based on central limit theorem
+        assert 0. < confidence and confidence < 1., '0 < confidence < 1, but {} was provided'.format(confidence)
+        tstudent = t.ppf((1+confidence)/2,df=N-2)
+        da = tstudent * confidence
+        db = tstudent * confidence
+
     f = lambda x: a*x+b #Define regresion func
     return( np.array([a,b]) ,np.array([da,db]) ,r2, f )
     
@@ -472,6 +587,11 @@ def linear_ponderated_regresion(x,y,dy,**kwargs):
     r2 = None #<----------------------------------------------------------------------------------------------------
     
     f=lambda x: a*x+b #Define regresion func
+
+    ymean = y.mean()
+    r2 = (w*(f(x)-ymean)**2).sum() / (w*(y-ymean)**2).sum() #REVISAR
+    #r2 = ((f(x)-ymean)**2).sum() / ((y-ymean)**2).sum()
+
     return( np.array([a,b]) , np.array([da,db]), r2 , f )
 
 
@@ -529,6 +649,54 @@ def linear_origin_regresion(x,y,**kwargs):
     f=lambda x: a*x #Define regresion func
     return( np.array([a]) , np.array([da]) , r2 , f)
 
+def quadratic_regresion(x,y,**kwargs):
+    '''
+    Calculates the quadratic regresion.
+    
+        PARAMETERS:
+            x, 1D-array-like: x points
+            y, 1D-array-like: y points
+            
+            
+        RETURNS:
+                    
+        For  y = ax^2 + bx +c
+            
+           a,  float: a coeficient
+           da, float: a error
+           b,  float: a coeficient
+           db, float: a error
+           c,  float: a coeficient
+           dc, float: a error
+           
+           f, funtion: f(x)=ax^2+bx+c
+           
+        ( (a,b,c) , (da,db,dc) , r2 , f )
+    '''
+
+    # Prepare input
+    x =  np.asarray(x)
+    y =  np.asarray(y)
+
+    # Checking input
+    assert len(x.shape)== 1, 'x must be a vector'
+    assert len(y.shape)== 1, 'y must be a vector'
+    assert np.size(x)==np.size(y), 'x and y must have the same number of elements'
+
+    # calculate twice used values
+    
+    p, V  = np.polyfit(x,y,deg=2,cov=True) #V is the covariance matrix
+    dp = np.sqrt(np.diag(V))
+
+    #define lambda function
+    f = lambda x: p[2] + (p[1] + p[0]*x)*x
+
+    ymean = y.mean()
+    r2 = ((f(x)-ymean)**2).sum() / ((y-ymean)**2).sum()
+
+    return p , dp, r2, f 
+
+
 def auto_linear(x,y,dx,dy):
     '''
     Choose which regresion between linear and linear ponderated is 
@@ -557,21 +725,20 @@ def auto_linear(x,y,dx,dy):
          
     '''
     if len(dy)==1 or len(dy)==0: #It's a number
+
         print("[INFO] linear regresion used")
         return linear_regresion(x,y)
     else: #It's an array like object
         print("[INFO] linear ponderated regresion used")
         return linear_ponderated_regresion(x,y,dy)
-    
 
-
-def custom_fitting (x,y,dy,func):
+def custom_fitting (x,y,dy,func,p0=None):
     '''
     Automated calling of scipy.optimeze.curve_fit
     '''
-    if dy == []: dy = None #solve some implementation issue due to diference in DataPlot dy=[]
+    if dy == [] or isinstance(dy,(int,float)): dy = None #solve some implementation issue due to diference in DataPlot dy=[]
                            #default argument and curve_fitting sigma = None expected
-    p, pcov, infodict, _, _ = curve_fit(func, x, y,sigma=dy, full_output=True)
+    p, pcov, infodict, _, _ = curve_fit(func, x, y,sigma=dy,p0=p0, full_output=True)
         #pcov is the covariance matrix of the parameters
     dp = np.sqrt(np.diag(pcov)) # errores estándar de los parámetros
 
@@ -584,9 +751,19 @@ def noFit(**kwargs):
     return ((),(),None,None)
 
 
-def sinusoidal(x,y,dy):
+def sinusoidal(x,y,dy,p0=None,**kwargs):
 
-    return custom_fitting(x,y,dy,lambda t, A, phi, B: A*np.sin(x + phi) + B)
+    return custom_fitting(x,y,dy,lambda t, A, phi, B: A*np.sin(x + phi) + B,p0=p0)
+
+def amortiguado_lineal(x,y,dy,p0=None,**kwargs):
+    return custom_fitting(x,y,dy, lambda t, A,B,w,phi,C : (A*t+B)*np.sin(w*t+phi) + C,p0=p0)
+
+def amortiguado_exponencial(x,y,dy,p0=None,**kwargs):
+    return custom_fitting(x,y,dy, lambda t, A,B,w,phi,gamma : A*np.exp(-gamma*t)*np.sin(w*t+phi) + B ,p0=p0)
+
+def fit_gauss(x,y,dy,p0=None,**kwargs):
+    return custom_fitting(x,y,dy, lambda x, mu,sigma2: np.exp(-.5*((x-mu)**2/sigma2)/np.sqrt(2*np.pi*sigma2)) , p0=p0)
+
 
 
 
@@ -610,10 +787,14 @@ class Fit (object):
         4                  : (linear_origin_regresion,('f(x)=ax',['a'],['da'])),
         'linear_origin'    : (linear_origin_regresion,('f(x)=ax',['a'],['da'])),
         5                  : (sinusoidal,('f(x)=Asin(x+phi)+B',['A','phi','B'],['dA','dphi','dB'])),
-        'sinusoidal'       : (sinusoidal,('f(x)=Asin(x+phi)+B',['A','phi','B'],['dA','dphi','dB']))
+        'sinusoidal'       : (sinusoidal,('f(x)=Asin(x+phi)+B',['A','phi','B'],['dA','dphi','dB'])),
+        'quadratic'        : (quadratic_regresion,('f(x)=ax^2+bx+c, quadratic',['a','b','c'],['da','db','dc'])),
+        'amortiguado_lineal':(amortiguado_lineal,('f(t) = (A·t+B)·sin(wt+phi) + C, amortiguado lineal',['A','B','w','phi','C'],['dA','dB','dw','dphi','dC'])),
+        'amortiguado_exponencial':(amortiguado_exponencial,('f(t) = Ae^{-gamma·t}sin(wt+phi) + B, amortiguado exponencial',['A','B','w','phi','gamma'],['dA','dB','dw','dphi','dgamma'] )),
+        'gauss'            : (fit_gauss, ('N(mu,sigma2)',['mu','sigma2'],['dmu','dsigma2']))
     }
 
-    def __init__ (self,x,y,dx=[],dy=[],reg=True):
+    def __init__ (self,x,y,dx=[],dy=[],reg=True,p0=None,confidence=None):
         '''
             PARAMETERS  
                 x, array-like:
@@ -627,6 +808,11 @@ class Fit (object):
                 dy, number or array-like:
                 
                 reg: type of fitting (see below)
+
+                confidence, float (0,1): confidence level
+                  for error estimation. If not specified t-student
+                  is not applied.
+            
                 
                 
             ATTRIBUTES
@@ -715,9 +901,13 @@ class Fit (object):
 
         #--- Skip nans ---
         whereNotNaN = ~(np.isnan(x) + np.isnan(y))
-        if whereNotNaN.any(): print("[WARN] Some nan values were ignored")
-        x = x[whereNotNaN]
-        y = y[whereNotNaN]
+        if not whereNotNaN.all(): 
+            print("[WARN] Some nan values were ignored")
+            x = x[whereNotNaN]
+            y = y[whereNotNaN]
+            if not isinstance(dy,(int,float)):
+                if len(dy) != 1 or len(dy)!= 0:
+                    dy = dy[whereNotNaN]
 
         #--- Customize instance ---
         self.type = reg #reg type
@@ -725,9 +915,9 @@ class Fit (object):
 
         #--- Get regresion ---
         if isinstance(reg,(int,str)):
-            self.p , self.dp , self.r2 ,self.f = self.regfuncs[reg][0](x=x,y=y,dx=dx,dy=dy)
+            self.p , self.dp , self.r2 ,self.f = self.regfuncs[reg][0](x=x,y=y,dx=dx,dy=dy,p0=p0)
         else: #Case of custom function instead of reg type
-            self.p , self.dp , self.r2 ,self.f = custom_fitting(x,y,dy,func=reg)
+            self.p , self.dp , self.r2 ,self.f = custom_fitting(x,y,dy,func=reg,p0=p0)
         
          # <- WHERE ->
          #  self.p: params of fitting
@@ -741,7 +931,7 @@ class Fit (object):
             'y'   : self.data[1],
             'dx'  : self.data[2],
             'dy'  : self.data[3],
-            'type': self.type, #chage to human readable
+            'type': self.type, #change to human readable
             'r2'  : self.r2,
             'f'   : self.f,
         }
@@ -755,7 +945,7 @@ class Fit (object):
                 self.dict.update(
                     {
                         'p'+str(i+1)  : self.p[i],
-                        'dp'+str(i+1): self.p[i]
+                        'dp'+str(i+1): self.dp[i]
                     }
                 )
         else:
@@ -769,8 +959,11 @@ class Fit (object):
         '''
         Show all the information relevant about the fit, including type and 
         '''
-
-        string = "    Reg type:    {} \n---------------------------------------------------\n".format(self.regfuncs[self.type][1][0])
+        try: #case not lambda
+            string = "    Reg type:    {} \n---------------------------------------------------\n".format(self.regfuncs[self.type][1][0])
+        except:
+            string = "    Reg type: custom fitting\n---------------------------------------------------\n"
+        
         for i in np.arange(len(self.p)):
             string = string + "{}: {}  +- {}\n".format(self.regfuncs[self.type][1][1][i],self.p[i],self.dp[i])
         
@@ -802,6 +995,7 @@ class Fit (object):
         '''
         Return human readable type of regresion
         '''
+        #Not implemented yet
 
 
 
@@ -822,6 +1016,11 @@ def setLatex(mode='pdf'):
            Note: pdf mode will also allow you to use plt.show()
 
     '''
+    matplotlib.rcParams['text.latex.preamble'] = [
+    r'\usepackage[spanish,es-tabla]{babel}\decimalpoint',
+    r'\usepackage{amsmath}',
+    r'\usepackage{amsfonts}',
+    r'\usepackage{amssymb}']
 
     if mode=='pdf':
         matplotlib.rcParams['text.usetex'] = True
@@ -937,9 +1136,10 @@ class DataPlot (Fit):
     (or without) fitting and it's plotting. It's used is focused on
     pairs of data (x ~ y). It can also manage errorbar plotting.
     '''
-    def __init__ (self,x,y,fmt='none',fmtr='none',reg=False,dx=[],dy=[],n=300,ax=None,**aditional_params): #quitar ax
+    def __init__ (self,x,y,fmt='none',fmtr='k-',reg=False,dx=[],dy=[],n=300,ax=None,confidence=None,p0=None,extrapolate=(0,0),**aditional_params): #quitar ax
         '''
-        
+        The class builder plots the points and regresion and also calls ana.Fit
+        functions to get the regresion coeficients.
 
             PARAMETERS
                 x, array-like: x data to plot and fit
@@ -961,10 +1161,16 @@ class DataPlot (Fit):
                                           function is drawn.
                                           Default value will use
                                           matplotlib.pyplot.gca()
+                confidence, float (0,1): confidence level
+                  for error estimation if not specified t-student is
+                  not applied
+
                 **aditional_params: every parameter accpeted by 
                                     matplotlib.pyplot.plot or 
                                     matplotlib.pyplot.plot depending on
                                     errorbars provided or not.
+                
+                Note: nan values will be ignored
             
             ATRIBUTES
                 p, numpy.array: array containing the fitting parameters
@@ -1031,8 +1237,6 @@ class DataPlot (Fit):
               estimate
 
                 
-
-                
         '''
         
         # -- PREPARE INPUT --
@@ -1053,9 +1257,9 @@ class DataPlot (Fit):
             #change default matplotlib parmaters in case not porvided
             nondefaulterrorparams = [('ms'           , 3 ), #marker size
                                      ('ecolor'       ,'k'), #errorbar color
-                                     ('capsize'        ,5), #errorbar cap size
-                                     ('elinewidth'     ,1), #errorbar line width
-                                     ('markeredgewidth',1)] #error bar cap width
+                                     ('capsize'        ,2), #errorbar cap size
+                                     ('elinewidth'     ,.5), #errorbar line width
+                                     ('markeredgewidth',.5)] #error bar cap width
             for key , value in nondefaulterrorparams:
                 if not key in aditional_params: # if a new value has not 
                                                 # been provided add it
@@ -1074,12 +1278,12 @@ class DataPlot (Fit):
             self.gr = plt.plot(x,y,fmt,**aditional_params)
         
         # -- REGRESION --
-        super().__init__(x,y,dx,dy,reg)
+        super().__init__(x,y,dx,dy,reg,confidence=confidence,p0=p0)
                 #make regresion from parent class and get all
                 #parameters set up for regresion
 
         if reg != False:
-            sample = np.linspace(np.min(self.data[0]),np.max(self.data[0]),n,endpoint=True)
+            sample = np.linspace(np.min(self.data[0])-extrapolate[0],np.max(self.data[0])+extrapolate[1],n,endpoint=True)
             self.rgr = plt.plot(sample,self.f(sample),fmtr,alpha=.3)
             
 def xrad(ax=None):#multiples=np.pi/3,ax=None):
@@ -1109,6 +1313,44 @@ def yrad(ax=None):#multiples=np.pi/3,ax=None):
     ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 8))
     ax.yaxis.set_major_formatter(plt.FuncFormatter(format_func))
 
+def xscale(factor,ax=None):
+    '''
+    Scale the x axis by a factor without changing
+    it's real plotted values
+
+        PARAMETERS:
+            factor, number: multiply all the numbers
+              in the axis by this factor
+            ax=None: axes in wich change the labels
+              Default parameters uses matplotlib.pyplot.gca()
+    '''
+    if ax == None: ax = plt.gca()
+    if matplotlib.rcParams['text.usetex'] == True:
+        ticks_x = matplotlib.ticker.FuncFormatter(lambda x, pos: '${0:g}$'.format(x*factor))
+    else: 
+        ticks_x = matplotlib.ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(x*factor))
+    
+    ax.xaxis.set_major_formatter(ticks_x)
+
+def yscale(factor,ax=None):
+    '''
+    Scale the x axis by a factor without changing
+    it's real plotted values
+
+        PARAMETERS:
+            factor, number: multiply all the numbers
+              in the axis by this factor
+            ax=None: axes in wich change the labels
+              Default parameters uses matplotlib.pyplot.gca()
+    '''
+    if ax == None: ax = plt.gca()
+    if matplotlib.rcParams['text.usetex'] == True:
+        ticks_y = matplotlib.ticker.FuncFormatter(lambda y, pos: '${0:g}$'.format(y*factor))
+    else: 
+        ticks_y = matplotlib.ticker.FuncFormatter(lambda y, pos: '{0:g}'.format(y*factor))
+    
+    ax.yaxis.set_major_formatter(ticks_y)
+
 def format_func(value, tick_number):
     '''
     Auxiliar function for yrad and xrad
@@ -1122,7 +1364,7 @@ def format_func(value, tick_number):
     elif N == 2:
         return r"$\pi$"
     elif N % 2 > 0:
-        return r"$%d\pi/2$"%(N)
+        return r"$%d\pxi/2$"%(N)
     else:
         return r"$%d\pi$"%(N // 2)
 
