@@ -6,7 +6,7 @@
 #  Author: Sergio García Pajares
 #  Mail me  'sergio.garcia.pajares @alumnos.uva.es' or 
 #           'sergiogarciapajares@gmail.com'
-#  last update: 04-10-2020
+#  last update: 05-01-2021
 #
 #  ------> LICENSE <----------------------------------------------------
 #  
@@ -114,7 +114,14 @@ import os
 #=======================================================================
 #==== DATA =============================================================
 #=======================================================================
+MARKERS = np.array(['bo','g^','rs','ch','m<','y>',])
 
+#Temporal style modification
+matplotlib.rc('lines',markersize=3,markeredgewidth=.5)
+matplotlib.rc('savefig',transparent=True)
+matplotlib.rc('errorbar',capsize=2)
+#matplotlib.rcParams['ecolor']='k'
+#print(matplotlib.rcParams.keys())
 
 #=======================================================================
 #==== FUNCTIONS ========================================================
@@ -880,13 +887,26 @@ class Fit (object):
                 >>> dx = [.02,.15,.10,.05]
                 >>> dy = [.9,.15,.2,.3]
                 >>> 
-                >>> myfit = analysis.fit(x,y,dx,dy,reg='linear_ponderated')
+                >>> myfit = analysis.Fit(x,y,dx,dy,reg='linear_ponderated')
+                >>>
+                >>> # We can acces to all parameters
                 >>> print(myfit.p) #show parameters
                        numpy.array([ 2.0101029  , -0.05116932 ])
                 >>> print(myfit.dp) #show error on parameters
                        numpy.array([ 0.14936723 ,  0.39837133 ])
-                >>> print(myfit.dict['a']," +- ",myfit.dict['da'])
+                >>>
+                >>> # We can also use a friendly way of getting parameters by
+                >>> # naming them (names depends on reg type)
+                >>> print(myfit['a']," +- ",myfit['da'])
                        2.0101029 +- 0.14936723
+                >>>
+                >>> # We can acces all the info of the fit printting it
+                >>> print(myfit)
+                        Reg type:    f(x)=ax+b, linear ponderated 
+                    ---------------------------------------------------
+                    a: 2.0101028999064585  +- 0.14936723411362335
+                    b: -0.051169317118803945  +- 0.3983713335117016
+                      r2 = 0.9915962515987549   
         '''
         if reg == False:
             self.p , self.dp , self.r2, self.f = None, None, None, None
@@ -1030,6 +1050,152 @@ def setLatex(mode='pdf'):
         matplotlib.rcParams['backend'] = 'TkAgg'
     else: raise ValueError("type must be 'pdf' or 'png'")
 
+def sample_function(func, points, tol=0.05, min_points=16, max_depth=16,sample_transform=None):
+    #Code copied from stack.exchange
+    """
+    Sample a 1D function to given tolerance by adaptive subdivision.
+
+    The result of sampling is a set of points that, if plotted,
+    produces a smooth curve with also sharp features of the function
+    resolved.
+
+    Parameters
+    ----------
+    func : callable
+        Function func(x) of a single argument. It is assumed to be vectorized.
+    points : array-like, 1D
+        Initial points to sample, sorted in ascending order.
+        These will determine also the bounds of sampling.
+    tol : float, optional
+        Tolerance to sample to. The condition is roughly that the total
+        length of the curve on the (x, y) plane is computed up to this
+        tolerance.
+    min_point : int, optional
+        Minimum number of points to sample.
+    max_depth : int, optional
+        Maximum recursion level.
+    sample_transform : callable, optional
+        Function w = g(x, y). The x-samples are generated so that w
+        is sampled.
+
+    Returns
+    -------
+    x : ndarray
+        X-coordinates
+    y : ndarray
+        Corresponding values of func(x)
+
+    Notes
+    -----
+    This routine is useful in computing functions that are expensive
+    to compute, and have sharp features --- it makes more sense to
+    adaptively dedicate more sampling points for the sharp features
+    than the smooth parts.
+
+    Examples
+    --------
+    >>> def func(x):
+    ...     '''Function with a sharp peak on a smooth background'''
+    ...     a = 0.001
+    ...     return x + a**2/(a**2 + x**2)
+    ...
+    >>> x, y = sample_function(func, [-1, 1], tol=1e-3)
+
+    >>> import matplotlib.pyplot as plt
+    >>> xx = np.linspace(-1, 1, 12000)
+    >>> plt.plot(xx, func(xx), '-', x, y[0], '.')
+    >>> plt.show()
+
+    """
+    return _sample_function(func, points, values=None, mask=None, depth=0,
+                            tol=tol, min_points=min_points, max_depth=max_depth,
+                            sample_transform=sample_transform)
+
+def _sample_function(func, points, values=None, mask=None, tol=0.05,
+                     depth=0, min_points=16, max_depth=16,
+                     sample_transform=None):
+    points = np.asarray(points)
+
+    if values is None:
+        values = np.atleast_2d(func(points))
+
+    if mask is None:
+        x_a = points[...,:-1]
+        x_b = points[...,1:]
+    else:
+        x_a = points[...,:-1][...,mask]
+        x_b = points[...,1:][...,mask]
+
+    if depth > max_depth:
+        # recursion limit
+        return points, values
+
+
+    x_c = .5*(x_a + x_b)
+    y_c = np.atleast_2d(func(x_c))
+
+    x_2 = np.r_[points, x_c]
+    y_2 = np.r_['-1', values, y_c]
+    j = np.argsort(x_2)
+
+    x_2 = x_2[...,j]
+    y_2 = y_2[...,j]
+
+    # -- Determine the intervals at which refinement is necessary
+
+    if len(x_2) < min_points:
+        mask = np.ones([len(x_2)-1], dtype=bool)
+    else:
+        # represent the data as a path in N dimensions (scaled to unit box)
+        if sample_transform is not None:
+            y_2_val = sample_transform(x_2, y_2)
+        else:
+            y_2_val = y_2
+
+        p = np.r_['0',
+                  x_2[None,:],
+                  y_2_val.real.reshape(-1, y_2_val.shape[-1]),
+                  y_2_val.imag.reshape(-1, y_2_val.shape[-1])
+                  ]
+
+        sz = (p.shape[0]-1)//2
+
+        xscale = x_2.ptp(axis=-1)
+        yscale = abs(y_2_val.ptp(axis=-1)).ravel()
+
+        p[0] /= xscale
+        p[1:sz+1] /= yscale[:,None]
+        p[sz+1:]  /= yscale[:,None]
+
+        # compute the length of each line segment in the path
+        dp = np.diff(p, axis=-1)
+        s = np.sqrt((dp**2).sum(axis=0))
+        s_tot = s.sum()
+
+        # compute the angle between consecutive line segments
+        dp /= s
+        dcos = np.arccos(np.clip((dp[:,1:] * dp[:,:-1]).sum(axis=0), -1, 1))
+
+        # determine where to subdivide: the condition is roughly that
+        # the total length of the path (in the scaled data) is computed
+        # to accuracy `tol`
+        dp_piece = dcos * .5*(s[1:] + s[:-1])
+        mask = (dp_piece > tol * s_tot)
+
+        mask = np.r_[mask, False]
+        mask[1:] |= mask[:-1].copy()
+
+
+    # -- Refine, if necessary
+
+    if mask.any():
+        return _sample_function(func, x_2, y_2, mask, tol=tol, depth=depth+1,
+                                min_points=min_points, max_depth=max_depth,
+                                sample_transform=sample_transform)
+    else:
+        return x_2, y_2
+
+
 def funplot (f,xmin,xmax,n=100,fmt='',legend='',title='',xlabel='',
 ylabel='',label='',adjust=False,**aditional_plot_params):
     '''
@@ -1136,57 +1302,89 @@ class DataPlot (Fit):
     (or without) fitting and it's plotting. It's used is focused on
     pairs of data (x ~ y). It can also manage errorbar plotting.
     '''
-    def __init__ (self,x,y,fmt='none',fmtr='k-',reg=False,dx=[],dy=[],n=300,ax=None,confidence=None,p0=None,extrapolate=(0,0),**aditional_params): #quitar ax
+    def __init__ (self,x,y,fmt='none',fmtr=None,reg=False,dx=[],dy=[],n=300,ax=None,confidence=None,p0=None,extrapolate=(0,0),tol=1e-3,max_depth=16,**aditional_params): #quitar ax
         '''
         The class builder plots the points and regresion and also calls ana.Fit
         functions to get the regresion coeficients.
 
             PARAMETERS
-                x, array-like: x data to plot and fit
-                y, array-like: y data to plot and fit
-                fmt='none', str: format of points using 
-                                 matploplotlib.pyplot.plot()
-                fmtr='none',str: format of regresion line using
-                                 matploplotlib.pyplot.plot()
+            --------------
+                x: array-like 
+                    x data to plot and fit
+                y: array-like: 
+                    y data to plot and fit
+                fmt='none': str
+                     format of points using matploplotlib.pyplot.plot()       
+                fmtr='none':
+                    str: format of regresion line using matploplotlib.pyplot.plot()      
                 reg=False, number str or callable: type of regresion
                         For types see below.
-                dx=[], number or array-like: standart errors
-                        of x-values drawing it's error bar
-                dy=[], number or array-like: standart errors
-                        of y-values for it's use in fitting and
-                        drawing of errorbars
-                n=300, int: number of points used to draw the fitted
-                            function
-                ax=None, matplotlib.axes: axes in wich points and fitted
-                                          function is drawn.
-                                          Default value will use
-                                          matplotlib.pyplot.gca()
-                confidence, float (0,1): confidence level
-                  for error estimation if not specified t-student is
-                  not applied
+                dx=[]: number or array-like:
+                    standart errors of x-values drawing it's error bar
+                dy=[]: number or array-like:
+                    standart errors of y-values for it's use in fitting and
+                    drawing of errorbars
+                tol=1e-3: number
+                    Tolerance for adaptative plotting
+                max_depth=16, int:
+                    Recursion limit for adaptative plotting
+                ax=None: matplotlib.axes: 
+                    axes in wich points and fitted function is drawn.
+                    Default value will use matplotlib.pyplot.gca() 
+                confidence: float (0,1): 
+                    Confidence level for error estimation if not specified 
+                    t-student pivot is not applied and 1-sigma desviations
+                    are found intead
 
-                **aditional_params: every parameter accpeted by 
-                                    matplotlib.pyplot.plot or 
-                                    matplotlib.pyplot.plot depending on
-                                    errorbars provided or not.
+                **aditional_params: 
+                    every parameter accpeted by matplotlib.pyplot.plot or 
+                    matplotlib.pyplot.plot depending on errorbars provided
+                     or not. 
+                                    
                 
-                Note: nan values will be ignored
+                Notes:
+                --------------
+                · nan values will be ignored.
+                · Adaptative plotting is used for representing non-linear curves.
+                
+
             
             ATRIBUTES
-                p, numpy.array: array containing the fitting parameters
-                dp, numpy.array: array containing the estimated error on
+            ------------
+                p, numpy.array: 
+                    array containing the fitting parameters
+                dp, numpy.array: 
+                    array containing the estimated error on
                                  fitting paramenters
-                r2, float: squared correlation coeficient R²
-                f, lambda.function: function f(x) representing the
-                                    fitted curve.
-                ax: axes in wich plot is made
-                gr: points plot
-                rgr: fitted curve plot
-                type: reg type provided by user
-                data, list [x,y,dx,dy]: original data provided by the user
-                dict, dictionary: This dictionary provides a user-friendly
-                      way to acces all info stored by the user. Including
-                      parameters in a human redable way.
+                r2, float: 
+                    squared correlation coeficient R²
+                
+                f, lambda.function: 
+                    function f(x) representing the fitted curve.
+
+                ax: 
+                    axes in wich plot is made
+                gr: 
+                    points plot
+                rgr: 
+                    fitted curve plot
+                type: 
+                    reg type provided by user
+                data, list [x,y,dx,dy]: 
+                    original data provided by the user
+                
+                sample: array
+                    array containing x point in wich fucntion has been eval
+                    for plotting
+
+                fvec: array
+                    array containing the function eval in sample points used
+                    for plotting
+
+                dict, dictionary: 
+                    This dictionary provides a user-friendly
+                    way to acces all info stored by the user. Including
+                    parameters in a human redable way.
 
                       KEYS:
                         x : x original data
@@ -1233,7 +1431,7 @@ class DataPlot (Fit):
               =====================================================
 
               Note: In case of user specified function format must
-              be  f(x,params) where params are the value we want to
+              be  f(x,params) where params are the values we want to
               estimate
 
                 
@@ -1244,7 +1442,6 @@ class DataPlot (Fit):
         y = np.asarray(y,dtype=float)
 
         assert np.size(x) == np.size(y), "x and y must have the same number of elements"
-        if reg in (1,'auto_linear',2,'linear',3,'linear_ponderated',4,'linear_origin'): n = 2 #simplify in linear cases
         
         
         if ax == None: self.ax = plt.gca()
@@ -1254,17 +1451,18 @@ class DataPlot (Fit):
         
         # -- POINTS PLOTTING --
         if dx!=[]  or dy!= [] : #Check if one of them is introduced
+            
             #change default matplotlib parmaters in case not porvided
-            nondefaulterrorparams = [('ms'           , 3 ), #marker size
+            nondefaulterrorparams = [#('ms'           , 3 ), #marker size
                                      ('ecolor'       ,'k'), #errorbar color
-                                     ('capsize'        ,2), #errorbar cap size
-                                     ('elinewidth'     ,.5), #errorbar line width
-                                     ('markeredgewidth',.5)] #error bar cap width
+                                    # ('capsize'        ,2), #errorbar cap size
+                                     ('elinewidth'     ,.5)] #errorbar line width
+                                     #('markeredgewidth',.5)] #error bar cap width
             for key , value in nondefaulterrorparams:
                 if not key in aditional_params: # if a new value has not 
                                                 # been provided add it
                     aditional_params.update( { key : value } )
-
+            
             # detect which errors were 
             if dx != []:
                 if dy != []:
@@ -1283,8 +1481,23 @@ class DataPlot (Fit):
                 #parameters set up for regresion
 
         if reg != False:
-            sample = np.linspace(np.min(self.data[0])-extrapolate[0],np.max(self.data[0])+extrapolate[1],n,endpoint=True)
-            self.rgr = plt.plot(sample,self.f(sample),fmtr,alpha=.3)
+            if reg in (1,'auto_linear',2,'linear',3,'linear_ponderated',4,'linear_origin'): #simplify in linear cases
+                self.sample = np.array([np.min(self.data[0])-extrapolate[0],np.max(self.data[0]+extrapolate[1])])
+                self.fvec = self.f(self.sample)
+            else:
+                self.sample, self.fvec = sample_function(self.f,[np.min(self.data[0])-extrapolate[0],np.max(self.data[0]+extrapolate[1])],
+                    tol=tol,max_depth=max_depth,min_points=50)
+                self.fvec= self.fvec[0]
+            
+            #Draw regresion line. Conditionals for different auto color options.
+            if fmtr == None: #Use same colorline for data and regresion
+                if fmt == 'none': #no color for data, use ecolor (default black)
+                    self.rgr = plt.plot(self.sample,self.fvec,'-',color=aditional_params['ecolor'],alpha=.3)
+                else: # color provided
+                    self.rgr = plt.plot(self.sample,self.fvec,'-',color=self.gr[0].get_color(),alpha=.3)
+                       # self.gr is a list of Line2D objects with the data plotted.
+            else: #regresion fmt in fmtr provided
+                self.rgr = plt.plot(self.sample,self.fvec,fmtr,alpha=.3)
             
 def xrad(ax=None):#multiples=np.pi/3,ax=None):
     '''
@@ -1348,7 +1561,6 @@ def yscale(factor,ax=None):
         ticks_y = matplotlib.ticker.FuncFormatter(lambda y, pos: '${0:g}$'.format(y*factor))
     else: 
         ticks_y = matplotlib.ticker.FuncFormatter(lambda y, pos: '{0:g}'.format(y*factor))
-    
     ax.yaxis.set_major_formatter(ticks_y)
 
 def format_func(value, tick_number):
@@ -1364,26 +1576,40 @@ def format_func(value, tick_number):
     elif N == 2:
         return r"$\pi$"
     elif N % 2 > 0:
-        return r"$%d\pxi/2$"%(N)
+        return r"$%d\pi/2$"%(N)
     else:
         return r"$%d\pi$"%(N // 2)
 
 def legend(ax=None, **kwargs):
         '''
-        Show legend without displaying error bars
+        Show legend without displaying error bars. This fucntion
+        replaces matplotlib.pyplot.legend.
+
+        Note: If marker is not provided with errorbar plot, errobars
+        will be used in the legend.
 
             PARAMETERS:
-                ax, axes: axes in wich to draw legend
-                    If not specified matplotlib.pyplot.gca()
-                    is used.
-                kwargs: Any matplotlib.pyplot.legend() argument
+                ax: axes
+                    axes in wich to draw legend. If not specified
+                    matplotlib.pyplot.gca() is used.
+                    
+                kwargs:
+                    Any matplotlib.pyplot.legend() argument
+            
             RETURNS:
                 legend object
         '''
         #remove error bar from legend
         if ax == None: ax = plt.gca()
         handles, labels = ax.get_legend_handles_labels()
-        handles = [handle[0] for handle in handles]
+        #handles = [handle[0] for handle in handles]
+        for i in np.arange(len(handles)):
+            if not isinstance(handles[i],matplotlib.lines.Line2D): #case Errorbar plot
+                handle = handles[i][0] #marker is the firt element of the list of the artist
+                if not handle == None: #cas marker was provided
+                    handles[i]=handle
+                #-> else: case marker not provided, use errorbars as marker i.e. do nothing
+            #-> else: case normal plt.plot do nothing 
 
         return ax.legend(handles, labels,**kwargs)
 
